@@ -50,15 +50,15 @@
         mn (min r g b)
         chroma (- mx mn)
         h (/ (cond
-               (= 0 chroma) 0
+               (> 1e-6 chroma) 0.0
                (= mx r) (/ (- g b) chroma)
                (= mx g) (+ 2 (/ (- b r) chroma))
                :else (+ 4 (/ (- r g) chroma))
                ) 6)
         l (/ (+ mn mx) 2)
         s
-        (if (= 0 chroma)
-          0
+        (if (> 1e-6 chroma)
+          0.0
           (/ chroma (- 1 (abs (dec (* 2 l))))))]
     [h s l]))
 

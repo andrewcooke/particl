@@ -1,4 +1,4 @@
-(ns cl.parti.test.random
+(ns cl.parti.random-test
   (:use (cl.parti random))
   (:use clojure.test))
 

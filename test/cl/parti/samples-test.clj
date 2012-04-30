@@ -1,17 +1,17 @@
-(ns cl.parti.test.samples
+(ns cl.parti.samples-test
   (:use clojure.java.io)
   (:use (cl.parti hsl mosaic random png))
   (:use clojure.test))
 
 
 (deftest test-samples
-  (doseq [[n s w bg t] [[5 5 20 [white 3] 20][500 16 4 [black 1] 40]]]
+  (doseq [[n s w bg k] [[500 5 20 [white 3] 40][500 16 4 [black 1] 64]]]
     (doseq [i (range n)]
       (let [path (apply str (interpose "-"
                               ["/tmp/sample" s w i ".png"]))
             state (hash-state path)
             [mosaic state] (random-mosaic s state)
-            mosaic (repeated-transform mosaic t (make-colourblind (mosaic 2)) state)
+            mosaic (repeated-transform mosaic k (make-colourblind (mosaic 2)) state)
             print (print-png-indexed (output-stream path))]
         (print-mosaic print mosaic w bg)))))
 

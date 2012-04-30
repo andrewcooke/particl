@@ -1,4 +1,4 @@
-(ns cl.parti.test.mosaic
+(ns cl.parti.mosaic-test
   (:use (cl.parti hsl mosaic random))
   (:use clojure.test))
 

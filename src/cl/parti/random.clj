@@ -2,6 +2,7 @@
   (:use clojure.math.numeric-tower)
   (:import java.security.MessageDigest))
 
+
 ; the secure random signature in java isn't clear on repeatability (the
 ; docs emphasize non-repeatability), so we use an explicit (sha-512) hash here.
 ; we care about "cosmetic" randomness (once the hash has been generated) and
@@ -76,12 +77,13 @@
     [(+ lo (* x (- hi lo))) stream])))
 
 ; 1 or -1
-(defn sign [state]
-  (let [[b state] (unbiased-byte state)]
-    [(if (> b 0) 1 -1) state]))
 
 (defn- z-neg [x]
   (if (= x 0) -1 x))
+
+(defn sign [state]
+  (let [[b state] (unbiased-byte state)]
+    [(z-neg b) state]))
 
 (defn sign-2 [state]
   (let [[b state] (whole-byte state)]
