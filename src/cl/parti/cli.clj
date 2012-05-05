@@ -1,6 +1,7 @@
 (ns cl.parti.cli
-  (:use (cl.parti hsl))
+  (:use (cl.parti hsl utils))
   (:import java.awt.Color)
+  (:use [clojure.string :only [replace] :rename {replace str-replace}])
   (:use clojure.tools.cli))
 
 
@@ -33,61 +34,110 @@
 ; note that this sets colour as rgb as components are over-ridden before
 ; conversion.
 (defn set-style [options]
-  (case (:style options)
-    "hash" (?merge options
-             {:tile-number 16 :tile-size 4
-              :border-colour [0 0 0] :border-width 1})
-    "user" (?merge options
-             {:tile-number 5 :tile-size 20
-              :border-colour [1 1 1] :border-width 3})
-    :else options))
+  (let [style (:style options)]
+    (case style
+      "hash" (?merge options
+               {:tile-number 16 :tile-size 4
+                :border-colour [0 0 0] :border-width 1})
+      "user" (?merge options
+               {:tile-number 5 :tile-size 20
+                :border-colour [1 1 1] :border-width 3})
+      :else (error "--style " style " unsupported"))))
 
+(defn parse-int [value name]
+  (try
+    (+ 0 value) ; return if numeric
+    (catch Exception e
+      (try
+        (Integer/parseInt value)
+        (catch Exception e
+          (println e)
+          (error name " " value " not an integer"))))))
+
+; name can be "--xxx" or :xxx
 (defn assert-range [x mn mx name]
-  (when (< x mn)
-    (println (str name " below " mn))
-    (System/exit 1))
-  (when (> x mx)
-    (println (str name " over " mx))
-    (System/exit 1)))
+  (let [name (str-replace name ":" "--")
+        x (parse-int x name)]
+    (when (< x mn)
+      (error name " below " mn))
+    (when (> x mx)
+      (error name " over " mx))))
 
 (defn check-tile-number [options]
   (when-let [n (:tile-number options)]
     (assert-range n 4 32 "--tile-number"))
   options)
 
+(defn check-input [options]
+  (let [input (:input options)]
+    (case input
+      "file" (?merge options {:style "hash"})
+      "hex" (?merge options {:style "hash"})
+      "word" (?merge options {:style "user"})
+      :else (error "--input " input " not supported"))))
+
 ; from playing around, we know that:
 ; n=5 k>5 k=20 k<40
 ; n=16 k>10 k=40,100 k<150
-; so we'll wildly extrapolate to k>n k=4n k<8n
+; so we'll wildly extrapolate to k>n k=4n k<8n but given a hard upper limit
 ; runs after style, so we know n is defined
+; increased later for more contrast to help colourblind users
 (defn set-complexity [options]
-  (let [n (:tile-number options)
-        options (?merge options {:complexity (* 4 n)})
+  (let [n (parse-int (:tile-number options) "--tile-number")
+        options (?merge options {:complexity (* 5 n)})
         k (:complexity options)]
     (do
-      (assert-range k n (* 8 n) "--complexity")
+      (assert-range k n (min 200 (* 10 n)) "--complexity")
       options)))
 
 ; this runs before anything else related to border-colour, so the value
 ; will be either nil or a colour name.  note that we set RGB here.
 (defn lookup-colour [options]
   (if-let [name (:border-colour options)]
-    (let [colour (.get (.getField Color name) nil)
-          rgb [(.getRed colour) (.getGreen colour) (.getBlue colour)]]
-      (assoc options :border-colour (map #(/ % 255) rgb)))
+    (try
+      (let [colour (.get (.getField Color name) nil)
+            rgb [(.getRed colour) (.getGreen colour) (.getBlue colour)]]
+        (assoc options :border-colour (map #(/ % 255) rgb)))
+      (catch Exception e
+        (error "--border-colour " name " unsupported")))
     options))
 
 ; this runs after style has provided defaults, so we know something is
 ; defined for the value
 (defn pick-component [options name default]
-  (if-let [value (name options)] value default))
+  (if-let [value (name options)]
+    (do
+      (assert-range value 0 255 name)
+      (/ (parse-int value name) 255))
+    default))
 
 (defn colour-components [options]
   (let [[r g b] (:border-colour options)
         r (pick-component options :border-red r)
-        g (pick-component options :border-red g)
-        b (pick-component options :border-red b)]
+        g (pick-component options :border-green g)
+        b (pick-component options :border-blue b)]
     (assoc options :border-colour (hsl [r g b]))))
+
+(defn set-http [options]
+  (if (some identity
+        (map options
+          [:http-port :http-bind :http-cache :http-param :http-path ]))
+    (do
+      (when (:output options) (error "--output conflicts with http use"))
+      (?merge options {:http-port 8081 :http-bind "0.0.0.0" :http-cache 100}))
+    options))
+
+(defn convert-int [options]
+  (apply merge (map (fn [[k v]]
+                      (if (and v
+                            (#{:tile-number :tile-size :border-width :http-port :complexity } k))
+                        {k (parse-int v k)}
+                        {k v}))
+                 options)))
+
+(defn show-options [options]
+  (when (:verbose options) (println options))
+  options)
 
 (defn handle-args [args]
   (let [[options args banner] (cli args
@@ -106,14 +156,20 @@
     ["--http-param" "The HTTP parameter to be used as input"]
     ["--http-path" "The prefix stripped from the path"]
     ["-k" "--complexity" "The image complexity"]
-    ["-x" "--hex" "Treat input as text hex hashes"]
+    ["-i" "--input" "Input type (file, hex, word)" :default "file"]
     ["-h" "--help" "Display help" :flag true]
+    ["-v" "--verbose" "Additional output" :flag true]
     )]
     (when (:help options)
       (println banner)
       (System/exit 0))
-    (reduce (fn [o f] (f o)) options
+    ; this gives a set of options with style values that are checked,
+    ; complete and consistent.  it uses values from the default style and
+    ; a complexity that depends on the mosaic size to fill gaps.  colour
+    ; components replace those from the style.
+    [args (reduce (fn [o f] (f o)) options
       ; ordering below is critical!
       [check-tile-number
-       lookup-colour set-style colour-components
-       set-complexity])))
+       lookup-colour check-input set-style colour-components
+       set-complexity set-http
+       convert-int show-options])]))

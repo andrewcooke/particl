@@ -4,6 +4,8 @@
   :dependencies [[org.clojure/clojure "1.3.0"]
                  [org.clojure/math.numeric-tower, "0.0.1"]
                  [ar.com.hjg/pngj "0.90.0"]
-                 [org.clojure/tools.cli "0.2.1"]]
-  :main cl.parti.cli-test)
+                 [org.clojure/tools.cli "0.2.1"]
+                 [commons-codec/commons-codec "1.6"]
+                 ]
+  :main cl.parti.main)
 

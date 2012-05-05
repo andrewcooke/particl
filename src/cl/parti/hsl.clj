@@ -75,8 +75,18 @@
 ; correlated with brightness changes.
 (defn make-colourblind [b]
   (fn [state]
+      ; the scale of these could be varied, trading against the
+      ; number of applications.  in theory larger values here and
+      ; less transforms would give a "chunkier" appearance, but in
+      ; practice it doesn't work out so well because random parameters
+      ; are not attractively distributed.  using more, smaller
+      ; changes gives a more consistent, reliable appearance.
+
+      ; the relative strengths here could be another parameter -
+      ; increasing r-max/l-max adds more hue-shift during processing.
+      ; there's a trade-off between distinctive consistent.
     (let [l-max 0.25
-          r-max 0.1
+          r-max 0.2
           [k state] (range-closed 1 state)]
       [#(lighten (inc (* l-max k)) (rotate (* b r-max k) %)) state])))
 

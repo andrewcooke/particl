@@ -1,6 +1,9 @@
 (ns cl.parti.random
+  (:use (cl.parti hex utils))
   (:use clojure.math.numeric-tower)
-  (:import java.security.MessageDigest))
+  (:import java.security.MessageDigest)
+  (:import org.apache.commons.codec.binary.Hex)
+  )
 
 
 ; the secure random signature in java isn't clear on repeatability (the
@@ -13,7 +16,7 @@
 ; independent values.  to extend that we will circulate the bytes, adding
 ; a simple rotation and xor to avoid immediate duplication.
 
-; generate a queue - for some reason not exposed at teh clojure level.
+; generate a queue - for some reason not exposed at the clojure level.
 (defn queue [vals]
   (reduce conj clojure.lang.PersistentQueue/EMPTY vals))
 
@@ -46,6 +49,15 @@
 ; package all the above into a single function
 (defn hash-state [text]
   (byte-stream (state text)))
+
+; alternatively, accept a hex string as a direct set of bytes
+(def HEX (Hex.))
+(defn hash-bytes [text]
+  (try
+;    (byte-stream (hex-to-bytes text))
+    (byte-stream (queue (.decode HEX text)))
+    (catch Exception e
+      (error text " is invalid hex: " (.getMessage e)))))
 
 
 ; the following extract a "random" value from the stream, returning the
