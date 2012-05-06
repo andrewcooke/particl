@@ -1,5 +1,5 @@
 (ns cl.parti.random
-  (:use (cl.parti hex utils))
+  (:use (cl.parti utils))
   (:use clojure.math.numeric-tower)
   (:import java.security.MessageDigest)
   (:import org.apache.commons.codec.binary.Hex)
@@ -16,15 +16,30 @@
 ; independent values.  to extend that we will circulate the bytes, adding
 ; a simple rotation and xor to avoid immediate duplication.
 
+(def HEX (Hex.))
+
 ; generate a queue - for some reason not exposed at the clojure level.
 (defn queue [vals]
+  (println (Hex/encodeHexString vals))
   (reduce conj clojure.lang.PersistentQueue/EMPTY vals))
 
 ; hash text to produce a queue of bytes
-(defn state [text]
+(defn hash-string [text]
   (let [hash (. MessageDigest getInstance "SHA-512")
         bytes (.digest hash (.getBytes text))]
     (queue bytes)))
+
+; hash stream of text to produce a queue of bytes
+(defn hash-stream [stream]
+  (let [hash (. MessageDigest getInstance "SHA-512")
+        buffer-size 65535
+        buffer (byte-array buffer-size)]
+    (defn copy-stream []
+      (let [n (.read stream buffer 0 buffer-size)]
+        (if (not= n -1)
+          (do (.update hash buffer 0 n) (recur))
+          (do (.close stream) hash))))
+    (queue (.digest (copy-stream)))))
 
 ; rotate b by n bits
 (defn rotate-byte [n b]
@@ -47,14 +62,15 @@
       (cons old (byte-stream (conj (pop queue) new))))))
 
 ; package all the above into a single function
-(defn hash-state [text]
-  (byte-stream (state text)))
+(defn string-state [text]
+  (byte-stream (hash-string text)))
+
+(defn stream-state [stream]
+  (byte-stream (hash-stream stream)))
 
 ; alternatively, accept a hex string as a direct set of bytes
-(def HEX (Hex.))
-(defn hash-bytes [text]
+(defn hex-state [text]
   (try
-;    (byte-stream (hex-to-bytes text))
     (byte-stream (queue (.decode HEX text)))
     (catch Exception e
       (error text " is invalid hex: " (.getMessage e)))))
@@ -85,8 +101,8 @@
 (defn range-closed
   ([hi stream] (range-closed (- hi) hi stream))
   ([lo hi stream]
-  (let [[x stream] (uniform-closed stream)]
-    [(+ lo (* x (- hi lo))) stream])))
+    (let [[x stream] (uniform-closed stream)]
+      [(+ lo (* x (- hi lo))) stream])))
 
 ; 1 or -1
 

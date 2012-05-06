@@ -6,19 +6,10 @@
 
 ; input -----------------------------------------------------------------------
 
-(defn lazy-open [file]
-  (defn helper [rdr]
-    (lazy-seq
-      (if-let [line (.readLine rdr)]
-        (cons line (helper rdr))
-        (do (.close rdr) nil))))
-  (lazy-seq
-    (helper (clojure.java.io/reader file))))
-
 (defn args-input [options args]
   (if (= "file" (:input options))
-    (map lazy-open args)
-    (map list args)))
+    (map input-stream args)
+    args))
 
 (defn stdin-input [options]
   (error "stdin-input " options))
@@ -32,10 +23,12 @@
 ; hash ------------------------------------------------------------------------
 
 (defn make-hash [options]
-  (let [join (partial apply str)]
-    (if (= "hex" (:input options))
-      (comp hash-bytes join)
-      (comp hash-state join))))
+  (let [join (partial apply str)
+        input (:input options)]
+    (case input
+      "hex" hex-state
+      "word" string-state
+      "file" stream-state)))
 
 
 ; print ----------------------------------------------------------------------
@@ -83,9 +76,8 @@
 
 ; main ------------------------------------------------------------------------
 
-; input generates a sequence (per file) of a sequence (per line) of strings
-; except for http, where it is nil.
-; hash turns a sequence of strings into a "state".
+; input generates a sequence (per file) of sources (unused by http).
+; hash turns input into a "state".
 ; print generates a mosaic from a state.
 ; driver drives the process and delivers the results.
 (defn -main [& args]

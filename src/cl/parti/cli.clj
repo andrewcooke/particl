@@ -42,7 +42,7 @@
       "user" (?merge options
                {:tile-number 5 :tile-size 20
                 :border-colour [1 1 1] :border-width 3})
-      :else (error "--style " style " unsupported"))))
+      (error "--style " style " unsupported"))))
 
 (defn parse-int [value name]
   (try
@@ -74,7 +74,7 @@
       "file" (?merge options {:style "hash"})
       "hex" (?merge options {:style "hash"})
       "word" (?merge options {:style "user"})
-      :else (error "--input " input " not supported"))))
+      (error "--input " input " not supported"))))
 
 ; from playing around, we know that:
 ; n=5 k>5 k=20 k<40
