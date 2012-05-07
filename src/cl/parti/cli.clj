@@ -2,7 +2,8 @@
   (:use (cl.parti hsl utils))
   (:import java.awt.Color)
   (:use [clojure.string :only [replace] :rename {replace str-replace}])
-  (:use clojure.tools.cli))
+  (:use clojure.tools.cli)
+  (:use clojure.math.numeric-tower))
 
 
 ; provide access to mosaic generation for various different tasks (this
@@ -34,10 +35,14 @@
 ; note that this sets colour as rgb as components are over-ridden before
 ; conversion.
 (defn set-style [options]
-  (let [style (:style options)]
+  (let [input (:input-type options)
+        style (:style (?merge options
+                        (if (= input "word")
+                          {:style "user"}
+                          {:style "hash"})))]
     (case style
       "hash" (?merge options
-               {:tile-number 16 :tile-size 4
+               {:tile-number 20 :tile-size 4
                 :border-colour [0 0 0] :border-width 1})
       "user" (?merge options
                {:tile-number 5 :tile-size 20
@@ -68,26 +73,13 @@
     (assert-range n 4 32 "--tile-number"))
   options)
 
-(defn check-input [options]
-  (let [input (:input options)]
-    (case input
-      "file" (?merge options {:style "hash"})
-      "hex" (?merge options {:style "hash"})
-      "word" (?merge options {:style "user"})
-      (error "--input " input " not supported"))))
-
-; from playing around, we know that:
-; n=5 k>5 k=20 k<40
-; n=16 k>10 k=40,100 k<150
-; so we'll wildly extrapolate to k>n k=4n k<8n but given a hard upper limit
-; runs after style, so we know n is defined
-; increased later for more contrast to help colourblind users
 (defn set-complexity [options]
   (let [n (parse-int (:tile-number options) "--tile-number")
-        options (?merge options {:complexity (* 5 n)})
+        nexp (expt n 2)
+        options (?merge options {:complexity nexp})
         k (:complexity options)]
     (do
-      (assert-range k n (min 200 (* 10 n)) "--complexity")
+      (assert-range k n (* 10 nexp) "--complexity")
       options)))
 
 ; this runs before anything else related to border-colour, so the value
@@ -121,7 +113,7 @@
 (defn set-http [options]
   (if (some identity
         (map options
-          [:http-port :http-bind :http-cache :http-param :http-path ]))
+          [:http-port :http-bind :http-cache :http-param :http-path]))
     (do
       (when (:output options) (error "--output conflicts with http use"))
       (?merge options {:http-port 8081 :http-bind "0.0.0.0" :http-cache 100}))
@@ -135,12 +127,23 @@
                         {k v}))
                  options)))
 
+(defn set-input [options]
+  (let [input (:input-type options)
+        http (:http-bind options)]
+    (case input
+      "file" (if http
+                (error "--input " input " conflicts with http")
+                options)
+      nil (assoc options :input-type (if http "word" "file"))
+      options)))
+
 (defn show-options [options]
   (when (:verbose options) (println options))
   options)
 
 (defn handle-args [args]
   (let [[options args banner] (cli args
+    ["-y" "--style" "A predefined style (hash, user)" :default "hash"]
     ["-n" "--tile-number" "Number of tiles"]
     ["-s" "--tile-size" "Number of pixels per tile"]
     ["-c" "--border-colour" "Border colour (white, black)"]
@@ -149,14 +152,13 @@
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
     ["-o" "--output" "File to which an image will be written"]
-    ["-y" "--style" "A predefined style (hash, user)" :default "hash"]
     ["-p" "--http-port" "Run an HTTP server on this port"]
     ["--http-bind" "Bind an HTTP server to this address"]
     ["--http-cache" "Number of images to cache"]
     ["--http-param" "The HTTP parameter to be used as input"]
     ["--http-path" "The prefix stripped from the path"]
     ["-k" "--complexity" "The image complexity"]
-    ["-i" "--input" "Input type (file, hex, word)" :default "file"]
+    ["-i" "--input-type" "How to interpret input (file, hex, word)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true]
     )]
@@ -170,6 +172,6 @@
     [args (reduce (fn [o f] (f o)) options
       ; ordering below is critical!
       [check-tile-number
-       lookup-colour check-input set-style colour-components
-       set-complexity set-http
+       lookup-colour set-http set-input set-style colour-components
+       set-complexity
        convert-int show-options])]))

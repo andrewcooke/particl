@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title></title>
+</head>
+<body>
+
+<h2>Introduction</h2>
+
+<h2>Install</h2>
+
+<h2>Building from Source</h2>
+
+<h2>Use</h2>
+
+<h2>Algorithm</h2>
+
+<h3>Overview</h3>
+
+<h3>Input Processing</h3>
+
+<h3>Image Generation</h3>
+
+<h2>Security</h2>
+
+<h3>Introduction</h3>
+
+<p>
+    Particl can be used to display a graphical hash of a file's contents.
+    This <em>complements</em> textual hashes. The two hashes - text and
+    image - have very different properties.
+</p><p>
+    A text hash - a hex value - is a quantitative (exact) representation
+    of the hash value.  It allows all the theoretical advantages of the
+    hash algorithm to be exploited, but can be viewed by non-expert
+    users as complicated, technical, uninteresting and impersonal.  Even
+    technical users do not, typically, have an emotional response to a
+    string of hex digits.
+</p><p>
+    A graphical hash - at least as generated here - does not function in
+    the same way.  It is a qualitative representation that engages the
+    user and provides a "holistic impression".  It can be viewed as
+    attractive, interesting and personal.
+</p><p>
+    So a graphical hash is more likely to engage a user.  But this comes
+    at a cost: it does not have the same guaranteed properties as an
+    exact, textual value.
+</p>
+
+<h3>Design</h3>
+
+<p>
+    Automating "attractive, interesting and personal" is hard.
+</p><p>
+    The solution must adapt to various uses, with different scales and
+    contexts.  A system that generates different facial expressions
+    would be much more likely to "connect" with the user, but is hard to
+    scale (both in size and amount of information represented) and much
+    more "intrusive" when embedded within a host site.  In contrast, a
+    stylized, "abstract" approach can support parameterisation (size,
+    complexity) and can be treated as a "symbol" within a web page.
+</p><p>
+    But "random" abstract designs look "noisy".  They are hard to describe
+    and hard to remember - which makes them hard to compare.  I identified
+    three techniques to help solve this problem:<dl>
+    <dt>Symmetry</dt>
+    <dd>A symmetric design is much less confusing; the axis gives the
+    pattern a sense of coherence.  I suspect (like much in design)
+    this is related to very low-level pattern-detection that is
+    "hard-wired" into our brains.</dd>
+    <dt>Range of Scales</dt>
+    <dd>The design must contain structure of different sizes.  This allows
+    a user to progress from "at a glance" judgements to moe detailed
+    inspection.  It also makes the design feel more "natural".</dd>
+    <dt>Reduced Palette</dt>
+    <dd>Using many colours increases the information density within the
+    design, but reduces the overall coherence.</dd>
+    </dl>
+</p><p>
+    Given the above it is no surprise that Particl generates abstract,
+    symmetrical patterns, using a range of scales and a limited palette,
+    or that it provides parameters (size, complexity, borders) that allow
+    adaption within a single aesthetic approach.
+</p><p>
+    However, initial trials exposed a further issue. I had overlooked
+    a large set of potential users: those that are colourblind.
+</p>
+
+<h3>Uniqueness</h3>
+
+<p>
+    The "hash" style generates a 16x16 mosaic.  Each tile in the mosaic is
+    described by three bytes (red, green and blue intensities), but the
+    design is symmetric along a diagonal axis.  So the maximum number of
+    bytes that can be encoded is 350 bytes.  This is less than
+</p>
+
+<h3>Suggested Use</h3>
+
+</body>
+</html>

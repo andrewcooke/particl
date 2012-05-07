@@ -1,5 +1,6 @@
 (ns cl.parti.mosaic
-  (:use (cl.parti random)))
+  (:use (cl.parti random))
+  (:use clojure.math.numeric-tower))
 
 
 ; a mosaic is a [n a b [row]] tuple, where:
@@ -19,10 +20,17 @@
 
 ; generate the corners of a square, given two random numbers
 ; and an orientation
+;(defn square [n a r1 r2]
+;  (let [m (dec n)
+;        xlo (int (* n (min r1 r2)))
+;        xhi (int (* n (max r1 r2)))
+;        [ylo yhi] (if (> 0 a) [xlo xhi] [(- m xhi) (- m xlo)])]
+;    [xlo xhi ylo yhi]))
 (defn square [n a r1 r2]
   (let [m (dec n)
-        xlo (int (* n (min r1 r2)))
-        xhi (int (* n (max r1 r2)))
+        side (int (* n (expt r1 1.7)))
+        xlo (int (* (- n side) r2))
+        xhi (+ xlo side)
         [ylo yhi] (if (> 0 a) [xlo xhi] [(- m xhi) (- m xlo)])]
     [xlo xhi ylo yhi]))
 

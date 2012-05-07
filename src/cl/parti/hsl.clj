@@ -70,25 +70,26 @@
 (defn rotate [k [h s l]]
   [(fold (+ k h)) s l])
 
+(defn sgn [x]
+  (cond (< x 0) -1 (> x 0) 1 :else 0))
+
+(defn shift-scale [mn mx k]
+  (+ (* mn (sgn k)) (* k (- mx mn))))
+
 ; lightness and colour shifts are correlated through b, which is typically
 ; fixed for a particular mosaic.  that means that colour changes are
 ; correlated with brightness changes.
-(defn make-colourblind [b]
-  (fn [state]
-      ; the scale of these could be varied, trading against the
-      ; number of applications.  in theory larger values here and
-      ; less transforms would give a "chunkier" appearance, but in
-      ; practice it doesn't work out so well because random parameters
-      ; are not attractively distributed.  using more, smaller
-      ; changes gives a more consistent, reliable appearance.
-
-      ; the relative strengths here could be another parameter -
-      ; increasing r-max/l-max adds more hue-shift during processing.
-      ; there's a trade-off between distinctive consistent.
-    (let [l-max 0.25
-          r-max 0.2
-          [k state] (range-closed 1 state)]
-      [#(lighten (inc (* l-max k)) (rotate (* b r-max k) %)) state])))
+(defn make-colourblind [n b]
+  ; complexity goes as n^x (x~2) so that we cover large mosaics, but
+  ; that means we need to turn down the step size.
+  (let [k (expt n -0.6)
+        [l-min l-max] [(* 0.05 k) (* 0.15 k)]
+        [r-min r-max] [(* 0.06 k) (* 0.2 k)]]
+    (fn [state]
+      (let [[k state] (range-closed 1 state)]
+        [#(lighten (inc (shift-scale l-min l-max k))
+            (rotate (shift-scale r-min r-max (* b k)) %))
+         state]))))
 
 (def white [0 0 1])
 (def black [0 0 0])

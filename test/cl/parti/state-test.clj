@@ -1,10 +1,10 @@
-(ns cl.parti.random-test
-  (:use (cl.parti random))
+(ns cl.parti.state-test
+  (:use (cl.parti state))
   (:use clojure.test))
 
 
 (deftest test-state
-  (let [s (state "hello world")]
+  (let [s (hash-string "hello world")]
     (is (= (peek s) 48))))
 
 (deftest test-rotate

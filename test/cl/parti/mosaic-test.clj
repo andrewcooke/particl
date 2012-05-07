@@ -1,5 +1,5 @@
 (ns cl.parti.mosaic-test
-  (:use (cl.parti hsl mosaic random))
+  (:use (cl.parti hsl mosaic state))
   (:use clojure.test))
 
 (deftest test-mosaic
@@ -8,7 +8,7 @@
 (deftest test-transform
   (let [m (mosaic 2 1 1 red)
         s (byte-stream (queue [1]))
-        m (repeated-transform m 1 (make-colourblind 1) s)]
+        m (repeated-transform m 1 (make-colourblind 2 1) s)]
     ; only check unchanged part
     (is (= ((m 3) 0) [[0. 1. 0.5] [0. 1. 0.5]]))))
 

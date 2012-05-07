@@ -1,4 +1,4 @@
-(ns cl.parti.random
+(ns cl.parti.state
   (:use (cl.parti utils))
   (:use clojure.math.numeric-tower)
   (:import java.security.MessageDigest)
@@ -20,14 +20,21 @@
 
 ; generate a queue - for some reason not exposed at the clojure level.
 (defn queue [vals]
-  (println (Hex/encodeHexString vals))
   (reduce conj clojure.lang.PersistentQueue/EMPTY vals))
+
+; add a second hash. this makes small changes in input visible and provides
+; random data even when the hex input is short.
+(defn safe-queue [bytes]
+  (println (Hex/encodeHexString bytes))
+  (let [hash (. MessageDigest getInstance "SHA-512")
+        bytes (.digest hash bytes)]
+    (queue bytes)))
 
 ; hash text to produce a queue of bytes
 (defn hash-string [text]
   (let [hash (. MessageDigest getInstance "SHA-512")
         bytes (.digest hash (.getBytes text))]
-    (queue bytes)))
+    (safe-queue bytes)))
 
 ; hash stream of text to produce a queue of bytes
 (defn hash-stream [stream]
@@ -39,7 +46,7 @@
         (if (not= n -1)
           (do (.update hash buffer 0 n) (recur))
           (do (.close stream) hash))))
-    (queue (.digest (copy-stream)))))
+    (safe-queue (.digest (copy-stream)))))
 
 ; rotate b by n bits
 (defn rotate-byte [n b]
@@ -71,7 +78,7 @@
 ; alternatively, accept a hex string as a direct set of bytes
 (defn hex-state [text]
   (try
-    (byte-stream (queue (.decode HEX text)))
+    (byte-stream (safe-queue (.decode HEX text)))
     (catch Exception e
       (error text " is invalid hex: " (.getMessage e)))))
 

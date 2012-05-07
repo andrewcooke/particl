@@ -7,7 +7,7 @@
 ; input -----------------------------------------------------------------------
 
 (defn args-input [options args]
-  (if (= "file" (:input options))
+  (if (= "file" (:input-type options))
     (map input-stream args)
     args))
 
@@ -24,7 +24,7 @@
 
 (defn make-hash [options]
   (let [join (partial apply str)
-        input (:input options)]
+        input (:input-type options)]
     (case input
       "hex" hex-state
       "word" string-state
@@ -38,7 +38,7 @@
         k (:complexity options)]
     (fn [state]
       (let [[mosaic state] (random-mosaic n state)
-            transform (make-colourblind (mosaic 2))]
+            transform (make-colourblind (mosaic 0) (mosaic 2))]
         (repeated-transform mosaic k transform state)))))
 
 
@@ -52,10 +52,12 @@
     (when (and (= index 1) (= -1 (.indexOf path "%d")))
       (printf "WARNING: Multiple output images but no '%%d' in --output\n"))
     (let [path (format path index)
-          print (print-png-indexed (output-stream path))]
+          n (image 0)
+          os (output-stream path)
+          print (if (< n 17) (print-png-indexed os) (print-png-8-bit os))]
       (print-mosaic print image scale border))))
 
-(defn make-gui-output [options]
+(defn make-gui-output [scale border]
   (fn [index image]
     (error "gui-output " index image)))
 
