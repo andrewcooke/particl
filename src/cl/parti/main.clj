@@ -1,6 +1,6 @@
 (ns cl.parti.main
   (:use clojure.java.io)
-  (:use (cl.parti cli mosaic random png hsl utils))
+  (:use (cl.parti cli mosaic state png hsl utils))
   (:gen-class ))
 
 
@@ -24,11 +24,12 @@
 
 (defn make-hash [options]
   (let [join (partial apply str)
+        hash (:hash-algorithm options)
         input (:input-type options)]
     (case input
-      "hex" hex-state
-      "word" string-state
-      "file" stream-state)))
+      "hex" (hex-state hash)
+      "word" (string-state hash)
+      "file" (stream-state hash))))
 
 
 ; print ----------------------------------------------------------------------

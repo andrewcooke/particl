@@ -32,23 +32,6 @@
   (reduce (fn [map [k v]] (if (map k) map (assoc map k v)))
     map extra))
 
-; note that this sets colour as rgb as components are over-ridden before
-; conversion.
-(defn set-style [options]
-  (let [input (:input-type options)
-        style (:style (?merge options
-                        (if (= input "word")
-                          {:style "user"}
-                          {:style "hash"})))]
-    (case style
-      "hash" (?merge options
-               {:tile-number 20 :tile-size 4
-                :border-colour [0 0 0] :border-width 1})
-      "user" (?merge options
-               {:tile-number 5 :tile-size 20
-                :border-colour [1 1 1] :border-width 3})
-      (error "--style " style " unsupported"))))
-
 (defn parse-int [value name]
   (try
     (+ 0 value) ; return if numeric
@@ -68,19 +51,28 @@
     (when (> x mx)
       (error name " over " mx))))
 
+; this runs after style has provided defaults, so we know something is
+; defined for the value
+(defn pick-component [options name default]
+  (if-let [value (name options)]
+    (do
+      (assert-range value 0 255 name)
+      (/ (parse-int value name) 255))
+    default))
+
+
+; option processing, in order -------------------------------------------------
+
 (defn check-tile-number [options]
   (when-let [n (:tile-number options)]
     (assert-range n 4 32 "--tile-number"))
   options)
 
-(defn set-complexity [options]
-  (let [n (parse-int (:tile-number options) "--tile-number")
-        nexp (expt n 2)
-        options (?merge options {:complexity nexp})
-        k (:complexity options)]
-    (do
-      (assert-range k n (* 10 nexp) "--complexity")
-      options)))
+(defn check-hash-algorithm [options]
+  (when-let [input (:input options)]
+    (when (and (= input "hex") (:hash-algorithm options))
+      (error "--hash-algorithm conflicts with --input hex")))
+  options)
 
 ; this runs before anything else related to border-colour, so the value
 ; will be either nil or a colour name.  note that we set RGB here.
@@ -94,22 +86,6 @@
         (error "--border-colour " name " unsupported")))
     options))
 
-; this runs after style has provided defaults, so we know something is
-; defined for the value
-(defn pick-component [options name default]
-  (if-let [value (name options)]
-    (do
-      (assert-range value 0 255 name)
-      (/ (parse-int value name) 255))
-    default))
-
-(defn colour-components [options]
-  (let [[r g b] (:border-colour options)
-        r (pick-component options :border-red r)
-        g (pick-component options :border-green g)
-        b (pick-component options :border-blue b)]
-    (assoc options :border-colour (hsl [r g b]))))
-
 (defn set-http [options]
   (if (some identity
         (map options
@@ -118,14 +94,6 @@
       (when (:output options) (error "--output conflicts with http use"))
       (?merge options {:http-port 8081 :http-bind "0.0.0.0" :http-cache 100}))
     options))
-
-(defn convert-int [options]
-  (apply merge (map (fn [[k v]]
-                      (if (and v
-                            (#{:tile-number :tile-size :border-width :http-port :complexity } k))
-                        {k (parse-int v k)}
-                        {k v}))
-                 options)))
 
 (defn set-input [options]
   (let [input (:input-type options)
@@ -137,28 +105,72 @@
       nil (assoc options :input-type (if http "word" "file"))
       options)))
 
+; note that this sets colour as rgb as components are over-ridden before
+; conversion.
+(defn set-style [options]
+  (let [input (:input-type options)
+        style (:style (?merge options
+                        (if (= input "word")
+                          {:style "user"}
+                          {:style "hash"})))]
+    (case style
+      "hash" (?merge options
+               {:tile-number 20 :tile-size 4
+                :border-colour [0 0 0] :border-width 1
+                :hash-algorithm "SHA-512"})
+      "user" (?merge options
+               {:tile-number 5 :tile-size 20
+                :border-colour [1 1 1] :border-width 3
+                :hash-algorithm "MD5"})
+      (error "--style " style " unsupported"))))
+
+(defn colour-components [options]
+  (let [[r g b] (:border-colour options)
+        r (pick-component options :border-red r)
+        g (pick-component options :border-green g)
+        b (pick-component options :border-blue b)]
+    (assoc options :border-colour (hsl [r g b]))))
+
+(defn set-complexity [options]
+  (let [n (parse-int (:tile-number options) "--tile-number")
+        nexp (expt n 2)
+        options (?merge options {:complexity nexp})
+        k (:complexity options)]
+    (do
+      (assert-range k n (* 10 nexp) "--complexity")
+      options)))
+
+(defn convert-int [options]
+  (apply merge (map (fn [[k v]]
+                      (if (and v
+                            (#{:tile-number :tile-size :border-width :http-port :complexity } k))
+                        {k (parse-int v k)}
+                        {k v}))
+                 options)))
+
 (defn show-options [options]
   (when (:verbose options) (println options))
   options)
 
 (defn handle-args [args]
   (let [[options args banner] (cli args
-    ["-y" "--style" "A predefined style (hash, user)" :default "hash"]
+    ["-s" "--style" "A predefined style (hash, user)" :default "hash"]
+    ["-i" "--input-type" "How to interpret input (file, hex, word)"]
+    ["-o" "--output" "File to which an image will be written"]
     ["-n" "--tile-number" "Number of tiles"]
-    ["-s" "--tile-size" "Number of pixels per tile"]
-    ["-c" "--border-colour" "Border colour (white, black)"]
+    ["-p" "--tile-size" "Number of pixels per tile"]
+    ["-c" "--border-colour" "Border colour (white, black, etc)"]
     ["-w" "--border-width" "Border width in pixels"]
     ["--border-red" "Border red component (0-255)"]
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
-    ["-o" "--output" "File to which an image will be written"]
-    ["-p" "--http-port" "Run an HTTP server on this port"]
+    ["--http-port" "Run an HTTP server on this port"]
     ["--http-bind" "Bind an HTTP server to this address"]
     ["--http-cache" "Number of images to cache"]
     ["--http-param" "The HTTP parameter to be used as input"]
     ["--http-path" "The prefix stripped from the path"]
     ["-k" "--complexity" "The image complexity"]
-    ["-i" "--input-type" "How to interpret input (file, hex, word)"]
+    ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true]
     )]
@@ -171,7 +183,7 @@
     ; components replace those from the style.
     [args (reduce (fn [o f] (f o)) options
       ; ordering below is critical!
-      [check-tile-number
+      [check-tile-number check-hash-algorithm
        lookup-colour set-http set-input set-style colour-components
        set-complexity
        convert-int show-options])]))

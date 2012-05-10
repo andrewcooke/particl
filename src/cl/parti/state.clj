@@ -1,125 +1,46 @@
 (ns cl.parti.state
-  (:use (cl.parti utils))
+  (:use (cl.parti utils random))
   (:use clojure.math.numeric-tower)
   (:import java.security.MessageDigest)
-  (:import org.apache.commons.codec.binary.Hex)
-  )
+  (:import org.apache.commons.codec.binary.Hex))
 
-
-; the secure random signature in java isn't clear on repeatability (the
-; docs emphasize non-repeatability), so we use an explicit (sha-512) hash here.
-; we care about "cosmetic" randomness (once the hash has been generated) and
-; *guaranteed* repeatability, so this should not be a problem.
-
-; we have 512 bits, 64 bytes, of initial state.  we need to generate
-; random values between 0 and 1 with a byte's resolution, so have 64 initial
-; independent values.  to extend that we will circulate the bytes, adding
-; a simple rotation and xor to avoid immediate duplication.
 
 (def HEX (Hex.))
 
-; generate a queue - for some reason not exposed at the clojure level.
-(defn queue [vals]
-  (reduce conj clojure.lang.PersistentQueue/EMPTY vals))
-
-; add a second hash. this makes small changes in input visible and provides
-; random data even when the hex input is short.
-(defn safe-queue [bytes]
-  (println (Hex/encodeHexString bytes))
-  (let [hash (. MessageDigest getInstance "SHA-512")
-        bytes (.digest hash bytes)]
-    (queue bytes)))
-
 ; hash text to produce a queue of bytes
-(defn hash-string [text]
-  (let [hash (. MessageDigest getInstance "SHA-512")
-        bytes (.digest hash (.getBytes text))]
-    (safe-queue bytes)))
+(defn make-hash-string [hash]
+  (fn [text]
+    (let [hash (. MessageDigest getInstance hash)]
+      (.digest hash (.getBytes text)))))
 
 ; hash stream of text to produce a queue of bytes
-(defn hash-stream [stream]
-  (let [hash (. MessageDigest getInstance "SHA-512")
-        buffer-size 65535
-        buffer (byte-array buffer-size)]
-    (defn copy-stream []
-      (let [n (.read stream buffer 0 buffer-size)]
-        (if (not= n -1)
-          (do (.update hash buffer 0 n) (recur))
-          (do (.close stream) hash))))
-    (safe-queue (.digest (copy-stream)))))
+(defn make-hash-stream [hash]
+  (fn [stream]
+    (let [hash (. MessageDigest getInstance hash)
+          buffer-size 65535
+          buffer (byte-array buffer-size)]
+      (defn copy-stream []
+        (let [n (.read stream buffer 0 buffer-size)]
+          (if (not= n -1)
+            (do (.update hash buffer 0 n) (recur))
+            (do (.close stream) hash))))
+      (.digest (copy-stream)))))
 
-; rotate b by n bits
-(defn rotate-byte [n b]
-  (let [b (if (< b 0) (+ b 0x100) b)
-        left (bit-shift-left (bit-and b (dec (expt 2 n))) (- 8 n))
-        right (bit-shift-right b n)]
-    (unchecked-byte (bit-or left right))))
+(defn string-state [hash]
+  (let [hash-string (make-hash-string hash)]
+    (fn [text]
+      (random (hash-string text)))))
 
-; an ad-hoc scrambling (flip alternate bits and rotate 3 bytes) used to
-; recycle state and extend the "random" stream of values.
-(defn scramble-byte [b]
-  (unchecked-byte (bit-xor 0x55 (rotate-byte 3 b))))
+(defn stream-state [hash]
+  (let [hash-stream (make-hash-stream hash)]
+    (fn [stream]
+      (random (hash-stream stream)))))
 
-; given a queue of bytes, generate a lazy sequence that cycles through the
-; queue, using scramble-byte to extend the period.
-(defn byte-stream [queue]
-  (lazy-seq
-    (let [old (peek queue)
-          new (scramble-byte old)]
-      (cons old (byte-stream (conj (pop queue) new))))))
-
-; package all the above into a single function
-(defn string-state [text]
-  (byte-stream (hash-string text)))
-
-(defn stream-state [stream]
-  (byte-stream (hash-stream stream)))
-
-; alternatively, accept a hex string as a direct set of bytes
-(defn hex-state [text]
-  (try
-    (byte-stream (safe-queue (.decode HEX text)))
-    (catch Exception e
-      (error text " is invalid hex: " (.getMessage e)))))
+(defn hex-state [hash]
+  (fn [hex]
+    (try
+      (random (.decode HEX hex))
+      (catch Exception e
+        (error hex " is invalid hex: " (.getMessage e))))))
 
 
-; the following extract a "random" value from the stream, returning the
-; value and a new stream.
-
-; [-127 127]
-(defn unbiased-byte [stream]
-  (let [b (first stream)
-        stream (rest stream)]
-    (if (= -128 b) (recur stream) [b stream])))
-
-; [0 255]
-(defn whole-byte [stream]
-  [(+ 128 (first stream)) (rest stream)])
-
-; [0.0 1.0)
-(defn uniform-open [stream]
-  [(/ (+ 128 (first stream)) 256.0) (rest stream)])
-
-; [0.0 1.0]
-(defn uniform-closed [stream]
-  [(/ (+ 128 (first stream)) 255.0) (rest stream)])
-
-; [lo hi]
-(defn range-closed
-  ([hi stream] (range-closed (- hi) hi stream))
-  ([lo hi stream]
-    (let [[x stream] (uniform-closed stream)]
-      [(+ lo (* x (- hi lo))) stream])))
-
-; 1 or -1
-
-(defn- z-neg [x]
-  (if (= x 0) -1 x))
-
-(defn sign [state]
-  (let [[b state] (unbiased-byte state)]
-    [(z-neg b) state]))
-
-(defn sign-2 [state]
-  (let [[b state] (whole-byte state)]
-    [(z-neg (bit-and b 1)) (z-neg (/ (bit-and b 2) 2)) state]))
