@@ -66,7 +66,9 @@
 
 ; [0.0 1.0)
 (defn uniform-open [stream]
-  [(/ (+ 128 (first stream)) 256.0) (rest stream)])
+  (let [a (first stream)
+        b (rest stream)]
+    [(/ (+ 128 a) 256.0) b]))
 
 ; [0.0 1.0]
 (defn uniform-closed [stream]

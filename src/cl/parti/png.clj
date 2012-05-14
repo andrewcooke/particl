@@ -30,7 +30,6 @@
            line (ImageLine. info)]
        (doseq [[i row] (map-indexed vector rows)]
          (doseq [[j [r g b]] (map-indexed vector row)]
-;           (println size i j r g b)
            (ImageLineHelper/setPixelRGB8 line j r g b))
          (.writeRow writer line i))
        (.end writer)))

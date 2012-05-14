@@ -39,7 +39,6 @@
       (try
         (Integer/parseInt value)
         (catch Exception e
-          (println e)
           (error name " " value " not an integer"))))))
 
 ; name can be "--xxx" or :xxx

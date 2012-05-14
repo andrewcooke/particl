@@ -3,11 +3,19 @@
   (:use clojure.math.numeric-tower))
 
 
+; mosaic generation based on transforming a randomly selected square,
+; located along a diagonal.  the first algorithm used here - gives good
+; results, but difficult to quantify.
+
+(def DELTA 1) ; range over which values shift in a single square
+(def LIGHTNESS 0.75) ; relative strength of l changes, relative to h
+(def NORM 0.5) ; scale for converting from shift to colours
+
 ; transform support -----------------------------------------------------------
 
 ; generate the corners of a square, given two random numbers
 ; and an orientation
-(defn- square [n diag r1 r2]
+(defn- corners [n diag r1 r2]
   (let [m (dec n)
         side (int (* n (expt r1 1.7)))
         xlo (int (* (- n side) r2))
@@ -23,67 +31,69 @@
 
 ; apply a function to all tiles within the square
 (defn- transform-square [[n diag rows] [transform [r1 r2]]]
-  (let [[xlo xhi ylo yhi] (square n diag r1 r2)]
-    xys (for [x (range xlo (inc xhi)) y (range ylo (inc yhi))] [x y])
+  (let [[xlo xhi ylo yhi] (corners n diag r1 r2)
+        xys (for [x (range xlo (inc xhi)) y (range ylo (inc yhi))] [x y])]
     [n diag (reduce #(apply-2 transform %1 %2) rows xys)]))
 
 ; given a source of transforms, generate the parameters needed
 ; to call transform-square as a lazy stream
 (defn- parameters [transform-factory state]
-  (lazy-seq (let [[r1 state] (uniform-open state)
-                  [r2 state] (uniform-open state)
-                  [transform state] (transform-factory state)]
-              (cons [transform [r1 r2]] (parameters transform-factory state)))))
+  (lazy-seq
+    (let [[r1 state] (uniform-open state)
+          [r2 state] (uniform-open state)
+          [transform state] (transform-factory state)]
+      (cons [transform [r1 r2]] (parameters transform-factory state)))))
 
 ; apply the transform n times using random parameters
 (defn- repeated-transform [ndr n transform-factory state]
-  (reduce transform-square ndr
-    (take n (parameters transform-factory state))))
+  (let [[n d r]
+        (reduce transform-square ndr
+          (take n
+            (parameters transform-factory state)))]
+    r))
 
 ; this is the transform - we add/subtract a random amount from the value
 (defn- make-delta [state]
-  (let [[delta state] (range-closed -3 3 state)]
+  (let [[delta state] (range-closed (- DELTA) DELTA state)]
     [#(+ delta %), state]))
-
-
-; render support --------------------------------------------------------------
-
-(defn make-to-hsl [hue h-v-l]
-  (fn [x]
-    (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
-      [(fold (+ h x)) 1 (clip (+ 0.5 (* h-v-l x)))])))
 
 
 ; type ------------------------------------------------------------------------
 
-(deftype Diagonal [options diag h-v-l hue rows]
-  "
-options  from cli
-diag     -1 or 1 to select diagonal
-h-v-l    -1 or 1 to select variation of lighntess with hue
-hue      base hue [0-1)
-rows     standard integer state representation
-(rows of cols of int, starting at 0)
-"
+;options  from cli
+;diag     -1 or 1 to select diagonal
+;h-v-l    -1 or 1 to select variation of lighntess with hue
+;hue      base hue [0-1)
+;rows     standard integer state representation
+;         (rows of cols of int, starting at 0)
+(defrecord Square [options diag h-v-l hue rows]
+
   Mosaic
 
   (transform [this state]
     (let [n (:tile-number options)
           k (:complexity options)
           rows (repeated-transform [n diag rows] k make-delta state)]
-      (Diagonal options diag h-v-l hue rows)))
+      (Square. options diag h-v-l hue rows)))
 
   (render [this]
-    (defn to-hsl [x]
-      (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
-        [(fold (+ h x)) 1 (clip (+ 0.5 (* h-v-l x)))]))
-    (let [scale (* 0.5 (apply max (map abs (flatten rows))))
-          rows-11 (map-rows (make-sigmoid scale) rows)])
-    (map-rows to-hsl rows-11)))
+    (let [n (:tile-number options)
+          k (:complexity options)]
+      (defn to-hsl [x]
+        (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
+          [(fold (+ hue x)) 1 (clip (+ 0.5 (* LIGHTNESS h-v-l x)))]))
+      ; todo - replace max with an analytic value based on n, k
+      (let [;scale (* 0.5 (apply max (map abs (flatten rows))))
+            scale (* NORM DELTA (/ k n))
+            rows-11 (map-rows (make-sigmoid scale) rows)
+            scale (:tile-size options)
+            colour (:border-colour options)
+            width (:border-width options)]
+        (expand-mosaic n scale colour width (map-rows to-hsl rows-11))))))
 
-(defn diagonal [options state]
+(defn square [options state]
   (let [[diag h-v-l state] (sign-2 state)
         [hue state] (uniform-open state)
         n (:tile-number options)
         rows (vec (repeat n (vec (repeat n 0))))]
-    [(Diagonal options diag h-v-l hue rows) state]))
+    [(Square. options diag h-v-l hue rows) state]))

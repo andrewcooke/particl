@@ -1,6 +1,6 @@
 (ns cl.parti.main
   (:use clojure.java.io)
-  (:use (cl.parti cli mosaic state png hsl utils))
+  (:use (cl.parti cli mosaic state png hsl utils square))
   (:gen-class ))
 
 
@@ -32,15 +32,15 @@
       "file" (stream-state hash))))
 
 
-; print ----------------------------------------------------------------------
+; generate --------------------------------------------------------------------
 
-(defn make-print [options]
+(defn make-generate [options]
   (let [n (:tile-number options)
         k (:complexity options)]
     (fn [state]
-      (let [[mosaic state] (random-mosaic n state)
-            transform (make-colourblind (mosaic 0) (mosaic 2))]
-        (repeated-transform mosaic k transform state)))))
+      (let [[mosaic state] (square options state)]
+        (render
+          (transform mosaic state))))))
 
 
 ; driver ----------------------------------------------------------------------
@@ -48,23 +48,23 @@
 (defn http-driver [options]
   (fn [print hash _] nil))
 
-(defn make-file-output [scale border path]
-  (fn [index image]
+(defn make-file-output [path]
+  (fn [index rows]
     (when (and (= index 1) (= -1 (.indexOf path "%d")))
       (printf "WARNING: Multiple output images but no '%%d' in --output\n"))
     (let [path (format path index)
-          n (image 0)
+          n (count rows)
           os (output-stream path)
           print (if (< n 17) (print-png-indexed os) (print-png-8-bit os))]
-      (print-mosaic print image scale border))))
+      (print-rows print rows))))
 
-(defn make-gui-output [scale border]
+(defn make-gui-output []
   (fn [index image]
     (error "gui-output " index image)))
 
 (defn make-generic-driver [output]
-  (fn [print hash input]
-    (doall (map-indexed output (map (comp print hash) input)))))
+  (fn [generate hash input]
+    (doall (map-indexed output (map (comp generate hash) input)))))
 
 (defn make-driver [options]
   (let [scale (:tile-size options)
@@ -73,20 +73,20 @@
       (http-driver scale border options)
       (make-generic-driver
         (if (:output options)
-          (make-file-output scale border (:output options))
-          (make-gui-output scale border))))))
+          (make-file-output (:output options))
+          (make-gui-output))))))
 
 
 ; main ------------------------------------------------------------------------
 
 ; input generates a sequence (per file) of sources (unused by http).
 ; hash turns input into a "state".
-; print generates a mosaic from a state.
+; generate creates a mosaic from a state.
 ; driver drives the process and delivers the results.
 (defn -main [& args]
   (let [[args options] (handle-args args)
         driver (make-driver options)
-        print (make-print options)
+        generate (make-generate options)
         hash (make-hash options)
         input (make-input options args)]
-    (driver print hash input)))
+    (driver generate hash input)))
