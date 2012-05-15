@@ -42,5 +42,3 @@
       (random (.decode HEX hex))
       (catch Exception e
         (error hex " is invalid hex: " (.getMessage e))))))
-
-

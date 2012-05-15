@@ -7,9 +7,10 @@
 ; located along a diagonal.  the first algorithm used here - gives good
 ; results, but difficult to quantify.
 
-(def DELTA 1) ; range over which values shift in a single square
+(def DELTA 2) ; range over which values shift in a single square
 (def LIGHTNESS 0.75) ; relative strength of l changes, relative to h
 (def NORM 0.5) ; scale for converting from shift to colours
+
 
 ; transform support -----------------------------------------------------------
 
@@ -57,6 +58,11 @@
   (let [[delta state] (range-closed (- DELTA) DELTA state)]
     [#(+ delta %), state]))
 
+(defn- de-mean [rows]
+  (let [flat (flatten rows)
+        mean (/ (apply + flat) (count flat))]
+    (map-rows #(- % mean) rows)))
+
 
 ; type ------------------------------------------------------------------------
 
@@ -73,7 +79,7 @@
   (transform [this state]
     (let [n (:tile-number options)
           k (:complexity options)
-          rows (repeated-transform [n diag rows] k make-delta state)]
+          rows (repeated-transform [n diag rows] (* k (expt n 2)) make-delta state)]
       (Square. options diag h-v-l hue rows)))
 
   (render [this]
@@ -82,10 +88,8 @@
       (defn to-hsl [x]
         (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
           [(fold (+ hue x)) 1 (clip (+ 0.5 (* LIGHTNESS h-v-l x)))]))
-      ; todo - replace max with an analytic value based on n, k
-      (let [;scale (* 0.5 (apply max (map abs (flatten rows))))
-            scale (* NORM DELTA (/ k n))
-            rows-11 (map-rows (make-sigmoid scale) rows)
+      (let [scale (* NORM DELTA (* k (expt n 0.8)))
+            rows-11 (map-rows (make-sigmoid scale) (de-mean rows))
             scale (:tile-size options)
             colour (:border-colour options)
             width (:border-width options)]

@@ -32,14 +32,18 @@
   (reduce (fn [map [k v]] (if (map k) map (assoc map k v)))
     map extra))
 
-(defn parse-int [value name]
-  (try
-    (+ 0 value) ; return if numeric
-    (catch Exception e
-      (try
-        (Integer/parseInt value)
-        (catch Exception e
-          (error name " " value " not an integer"))))))
+(defn make-numeric-parser [parse type]
+  (fn [value name]
+    (try
+      (+ 0 value) ; return if numeric
+      (catch Exception e
+        (try
+          (parse value)
+          (catch Exception e
+            (error name " " value " not " type)))))))
+
+(def parse-int (make-numeric-parser (memfn Integer/parseInt) "an integer"))
+(def parse-double (make-numeric-parser (memfn Double/parseDouble) "a float"))
 
 ; name can be "--xxx" or :xxx
 (defn assert-range [x mn mx name]
@@ -88,7 +92,7 @@
 (defn set-http [options]
   (if (some identity
         (map options
-          [:http-port :http-bind :http-cache :http-param :http-path]))
+          [:http-port :http-bind :http-cache :http-param :http-path ]))
     (do
       (when (:output options) (error "--output conflicts with http use"))
       (?merge options {:http-port 8081 :http-bind "0.0.0.0" :http-cache 100}))
@@ -99,8 +103,8 @@
         http (:http-bind options)]
     (case input
       "file" (if http
-                (error "--input " input " conflicts with http")
-                options)
+               (error "--input " input " conflicts with http")
+               options)
       nil (assoc options :input-type (if http "word" "file"))
       options)))
 
@@ -131,21 +135,26 @@
     (assoc options :border-colour (hsl [r g b]))))
 
 (defn set-complexity [options]
-  (let [n (parse-int (:tile-number options) "--tile-number")
-        nexp (expt n 2)
-        options (?merge options {:complexity nexp})
+  (let [options (?merge options {:complexity 1})
         k (:complexity options)]
     (do
-      (assert-range k n (* 10 nexp) "--complexity")
+      (assert-range k 0.1 10 "--complexity")
       options)))
 
-(defn convert-int [options]
-  (apply merge (map (fn [[k v]]
-                      (if (and v
-                            (#{:tile-number :tile-size :border-width :http-port :complexity } k))
-                        {k (parse-int v k)}
-                        {k v}))
-                 options)))
+(defn make-conversion [parser names]
+  (fn [options]
+    (apply merge (map (fn [[k v]]
+                        (if (and v
+                              (names k))
+                          {k (parser v k)}
+                          {k v}))
+                   options))))
+
+(def convert-int
+  (make-conversion parse-int #{:tile-number :tile-size :border-width :http-port}))
+
+(def convert-double
+  (make-conversion parse-double #{:complexity}))
 
 (defn show-options [options]
   (when (:verbose options) (println options))
@@ -168,7 +177,7 @@
     ["--http-cache" "Number of images to cache"]
     ["--http-param" "The HTTP parameter to be used as input"]
     ["--http-path" "The prefix stripped from the path"]
-    ["-k" "--complexity" "The image complexity"]
+    ["-k" "--complexity" "The image complexity (float, ~1)"]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true]
@@ -185,4 +194,4 @@
       [check-tile-number check-hash-algorithm
        lookup-colour set-http set-input set-style colour-components
        set-complexity
-       convert-int show-options])]))
+       convert-int convert-double show-options])]))
