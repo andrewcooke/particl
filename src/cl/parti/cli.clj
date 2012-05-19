@@ -1,5 +1,5 @@
 (ns cl.parti.cli
-  (:use (cl.parti hsl utils))
+  (:use (cl.parti hsl utils square fourier))
   (:import java.awt.Color)
   (:use [clojure.string :only [replace] :rename {replace str-replace}])
   (:use clojure.tools.cli)
@@ -120,11 +120,11 @@
       "hash" (?merge options
                {:tile-number 20 :tile-size 4
                 :border-colour [0 0 0] :border-width 1
-                :hash-algorithm "SHA-512"})
+                :hash-algorithm "SHA-512" :render "fourier"})
       "user" (?merge options
                {:tile-number 5 :tile-size 20
                 :border-colour [1 1 1] :border-width 3
-                :hash-algorithm "MD5"})
+                :hash-algorithm "MD5" :render "fourier"})
       (error "--style " style " unsupported"))))
 
 (defn colour-components [options]
@@ -141,6 +141,13 @@
       (assert-range k 0.1 10 "--complexity")
       options)))
 
+(defn set-render [options]
+  (let [render (:render options)]
+    (case render
+      "square" (assoc options :render square)
+      "fourier" (assoc options :render fourier)
+      :else (error "--render " render " unsupported"))))
+
 (defn make-conversion [parser names]
   (fn [options]
     (apply merge (map (fn [[k v]]
@@ -151,10 +158,10 @@
                    options))))
 
 (def convert-int
-  (make-conversion parse-int #{:tile-number :tile-size :border-width :http-port}))
+  (make-conversion parse-int #{:tile-number :tile-size :border-width :http-port }))
 
 (def convert-double
-  (make-conversion parse-double #{:complexity}))
+  (make-conversion parse-double #{:complexity }))
 
 (defn show-options [options]
   (when (:verbose options) (println options))
@@ -178,6 +185,7 @@
     ["--http-param" "The HTTP parameter to be used as input"]
     ["--http-path" "The prefix stripped from the path"]
     ["-k" "--complexity" "The image complexity (float, ~1)"]
+    ["-r" "--render" "How the image is rendered (square, fourier)"]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true]
@@ -193,5 +201,5 @@
       ; ordering below is critical!
       [check-tile-number check-hash-algorithm
        lookup-colour set-http set-input set-style colour-components
-       set-complexity
+       set-complexity set-render
        convert-int convert-double show-options])]))

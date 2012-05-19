@@ -1,6 +1,6 @@
 (ns cl.parti.main
   (:use clojure.java.io)
-  (:use (cl.parti cli mosaic state png hsl utils square))
+  (:use (cl.parti cli mosaic state png hsl utils))
   (:gen-class ))
 
 
@@ -36,10 +36,11 @@
 
 (defn make-generate [options]
   (let [n (:tile-number options)
-        k (:complexity options)]
+        k (:complexity options)
+        render (:render options)]
     (fn [state]
-      (let [[mosaic state] (square options state)]
-        (render
+      (let [[mosaic state] (render options state)]
+        (expand
           (transform mosaic state))))))
 
 

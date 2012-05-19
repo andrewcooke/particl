@@ -1,5 +1,5 @@
 (ns cl.parti.mosaic
-  (:use (cl.parti random))
+  (:use (cl.parti random hsl))
   (:import java.lang.Math)
   (:use clojure.math.numeric-tower))
 
@@ -14,7 +14,7 @@
 
 (defprotocol Mosaic
   (transform [mosaic state])
-  (render [mosaic]))
+  (expand [mosaic]))
 
 
 ; general utilities -----------------------------------------------------------
@@ -59,3 +59,18 @@
     (let [x (/ x k)]
       (- (/ 2 (+ 1 (Math/exp (- x)))) 0.5))))
 
+(defn- de-mean [rows]
+  (let [flat (flatten rows)
+        mean (/ (apply + flat) (count flat))]
+    (map-rows #(- % mean) rows)))
+
+(defn floats-to-hsl [options norm lightness h-v-l hue rows]
+  (defn to-hsl [x]
+    (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
+      [(fold (+ hue x)) 1 (clip (+ 0.5 (* lightness h-v-l x)))]))
+  (let [rows-11 (map-rows (make-sigmoid norm) (de-mean rows))
+        n (:tile-number options)
+        scale (:tile-size options)
+        colour (:border-colour options)
+        width (:border-width options)]
+    (expand-mosaic n scale colour width (map-rows to-hsl rows-11))))

@@ -58,11 +58,6 @@
   (let [[delta state] (range-closed (- DELTA) DELTA state)]
     [#(+ delta %), state]))
 
-(defn- de-mean [rows]
-  (let [flat (flatten rows)
-        mean (/ (apply + flat) (count flat))]
-    (map-rows #(- % mean) rows)))
-
 
 ; type ------------------------------------------------------------------------
 
@@ -82,18 +77,11 @@
           rows (repeated-transform [n diag rows] (* k (expt n 2)) make-delta state)]
       (Square. options diag h-v-l hue rows)))
 
-  (render [this]
+  (expand [this]
     (let [n (:tile-number options)
-          k (:complexity options)]
-      (defn to-hsl [x]
-        (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
-          [(fold (+ hue x)) 1 (clip (+ 0.5 (* LIGHTNESS h-v-l x)))]))
-      (let [scale (* NORM DELTA (* k (expt n 0.8)))
-            rows-11 (map-rows (make-sigmoid scale) (de-mean rows))
-            scale (:tile-size options)
-            colour (:border-colour options)
-            width (:border-width options)]
-        (expand-mosaic n scale colour width (map-rows to-hsl rows-11))))))
+          k (:complexity options)
+          norm (* NORM DELTA (* k (expt n 0.8)))]
+      (floats-to-hsl options norm LIGHTNESS h-v-l hue rows))))
 
 (defn square [options state]
   (let [[diag h-v-l state] (sign-2 state)
