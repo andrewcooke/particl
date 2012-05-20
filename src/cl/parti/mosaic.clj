@@ -4,17 +4,7 @@
   (:use clojure.math.numeric-tower))
 
 
-; we define an interface that can be implemented in various ways.  in all
-; cases the mosaic is created from a set of options and random state,
-; transformed using random state, and then rendered as a 2d-array of hsl
-; values.
-
-; constructors are not part of the protocol but have the form
-; (defn constructor [options state] ...) and return [instance state]
-
-(defprotocol Mosaic
-  (transform [mosaic state])
-  (expand [mosaic]))
+(def OVERSHOOT 1.5)
 
 
 ; general utilities -----------------------------------------------------------
@@ -51,26 +41,37 @@
 
 ; float rows ------------------------------------------------------------------
 
-; often it's useful to represent a mosaic as a set of rows of float values.
-; these utilities help with conversion to hsl.
+; normalize rows of floats so that they are [-1 1]
+
+(defn- clip-11 [x]
+  (cond
+    (< x -1) -1
+    (> x 1) 1
+    :else x))
 
 (defn make-sigmoid [k]
   (fn [x]
     (let [x (/ x k)]
-      (- (/ 2 (+ 1 (Math/exp (- x)))) 0.5))))
+      (clip-11 (* OVERSHOOT (- (/ 2 (+ 1 (Math/exp (- x)))) 1))))))
 
 (defn- de-mean [rows]
   (let [flat (flatten rows)
         mean (/ (apply + flat) (count flat))]
     (map-rows #(- % mean) rows)))
 
-(defn floats-to-hsl [options norm lightness h-v-l hue rows]
+(defn normalize [norm rows]
+  (let [rows (de-mean rows)]
+    (map-rows (make-sigmoid norm) rows)))
+
+; convert rows of floats to rows of hsl values.
+
+(defn floats-to-hsl [options lightness h-v-l hue rows-11]
   (defn to-hsl [x]
     (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
       [(fold (+ hue x)) 1 (clip (+ 0.5 (* lightness h-v-l x)))]))
-  (let [rows-11 (map-rows (make-sigmoid norm) (de-mean rows))
-        n (:tile-number options)
+  (let [n (:tile-number options)
         scale (:tile-size options)
         colour (:border-colour options)
-        width (:border-width options)]
-    (expand-mosaic n scale colour width (map-rows to-hsl rows-11))))
+        width (:border-width options)
+        hsl (map-rows to-hsl rows-11)]
+    (expand-mosaic n scale colour width hsl)))

@@ -185,7 +185,7 @@
     ["--http-param" "The HTTP parameter to be used as input"]
     ["--http-path" "The prefix stripped from the path"]
     ["-k" "--complexity" "The image complexity (float, ~1)"]
-    ["-r" "--render" "How the image is rendered (square, fourier)"]
+    ["-r" "--render" "How image rendered (square, fourier)"]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true]

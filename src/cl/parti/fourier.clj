@@ -3,62 +3,31 @@
   (:use clojure.math.numeric-tower))
 
 
-(def DELTAX 2) ; range over which values shift in a single square
-(def LIGHTNESSX 0.75) ; relative strength of l changes, relative to h
-(def NORMX 0.5) ; scale for converting from shift to colours
+(def ^:private NORM 3) ; scale for converting from shift to colours
 
 
-; render support --------------------------------------------------------------
+(defn- expand-term [x i [phase amplitude]]
+  (* amplitude (Math/cos (+ phase (* 2 Math/PI (/ x (inc i)))))))
 
-(defn perm [coeffs]
-  (if-let [coeffs (seq coeffs)]
-    (let [a (first coeffs)]
-      (concat
-        (for [b (perm (rest coeffs))] (cons a b))
-        (for [b (perm (rest coeffs))] (cons (- a) b))))
-    [[]]))
+(defn- expand-pixel [x n coeffs]
+  (apply + (for [i (range (dec n))] (expand-term x i (coeffs i)))))
 
-(defn- expand-row [coeffs]
-  (map (partial apply + ) (perm coeffs)))
+(defn- expand-row [n coeffs]
+  (for [x (range n)] (expand-pixel x n coeffs)))
 
-(defn- coeffs-to-rows [coeffs]
-  (let [row (expand-row coeffs)]
+(defn- coeffs-to-rows [n coeffs]
+  (let [row (expand-row n coeffs)]
     (for [a row] (for [b row] (+ a b)))))
 
-
-; transform support -----------------------------------------------------------
-
-(defn- ranges [state]
+(defn- coeff [state]
   (lazy-seq
-    (let [[range state] (range-closed DELTAX state)]
-      (cons range (ranges state)))))
-
-
-; type ------------------------------------------------------------------------
-
-; we actually use square waves rather than sines, but the idea is the same -
-; we skip zeroth order and have single wavelength to n/2 wavelengths, each of
-; amplitude +/- DELTA
-(defrecord Fourier [options diag h-v-l hue coeffs]
-
-  Mosaic
-
-  (transform [this state]
-    (let [n (:tile-number options)]
-      (Fourier. options diag h-v-l hue
-        (take (dec n) (ranges state)))))
-
-  (expand [this]
-    (println coeffs)
-    (let [n (:tile-number options)
-          norm (* NORMX DELTAX (expt (dec n) 0.5))
-          rows (coeffs-to-rows coeffs)]
-      (println rows)
-      (floats-to-hsl options norm LIGHTNESSX h-v-l hue rows))))
+    (let [[phase state] (range-closed Math/PI state)
+          [amplitude state] (uniform-open state)]
+      (cons [phase amplitude] (coeff state)))))
 
 (defn fourier [options state]
-  (let [[diag h-v-l state] (sign-2 state)
-        [hue state] (uniform-open state)
-        n (:tile-number options)
-        coeffs (vec (repeat n 0))]
-    [(Fourier. options diag h-v-l hue []) state]))
+  (let [n (:tile-number options)
+        [diag state] (sign state)
+        coeffs (vec (take (dec n) (coeff state)))
+        rows (coeffs-to-rows n coeffs)]
+    (normalize NORM rows)))

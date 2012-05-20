@@ -1,9 +1,9 @@
 (ns cl.parti.fourier-test
-  (:use (cl.parti fourier))
+  (:use cl.parti.main)
   (:use clojure.test))
 
 
-(deftest test-perm
-  (is (= [[1 2 3] [1 2 -3] [1 -2 3] [1 -2 -3] [-1 2 3] [-1 2 -3] [-1 -2 3] [-1 -2 -3]] (perm [1 2 3]))))
+(deftest test-fourier
+  (-main "-v" "-r" "fourier" "-i" "word" "-o" "/tmp/fourier-test.png" "abc"))
 
 (run-tests)

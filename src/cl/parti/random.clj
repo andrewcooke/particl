@@ -66,13 +66,15 @@
 
 ; [0.0 1.0)
 (defn uniform-open [stream]
-  (let [a (first stream)
-        b (rest stream)]
-    [(/ (+ 128 a) 256.0) b]))
+  (let [b (first stream)
+        stream (rest stream)]
+    [(/ (+ 128 b) 256.0) stream]))
 
 ; [0.0 1.0]
 (defn uniform-closed [stream]
-  [(/ (+ 128 (first stream)) 255.0) (rest stream)])
+  (let [b (first stream)
+        stream (rest stream)]
+    [(/ (+ 128 b) 255.0) stream]))
 
 ; [lo hi]
 (defn range-closed
@@ -87,8 +89,8 @@
   (if (= x 0) -1 x))
 
 (defn sign [state]
-  (let [[b state] (unbiased-byte state)]
-    [(z-neg b) state]))
+  (let [[b state] (whole-byte state)]
+    [(z-neg (bit-and b 1)) state]))
 
 (defn sign-2 [state]
   (let [[b state] (whole-byte state)]

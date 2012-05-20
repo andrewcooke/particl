@@ -7,12 +7,9 @@
 ; located along a diagonal.  the first algorithm used here - gives good
 ; results, but difficult to quantify.
 
-(def DELTA 2) ; range over which values shift in a single square
-(def LIGHTNESS 0.75) ; relative strength of l changes, relative to h
-(def NORM 0.5) ; scale for converting from shift to colours
+(def ^:private DELTA 2) ; range over which values shift in a single square
+(def ^:private NORM 0.5) ; scale for converting from shift to colours
 
-
-; transform support -----------------------------------------------------------
 
 ; generate the corners of a square, given two random numbers
 ; and an orientation
@@ -25,67 +22,44 @@
     [xlo xhi ylo yhi]))
 
 ; apply a function to a value in the nested vectors
-(defn- apply-2 [transform rows [x y]]
+(defn- apply-2 [delta rows [x y]]
   (let [row (rows x)
-        val (transform (row y))]
+        val (delta (row y))]
     (assoc rows x (assoc row y val))))
 
 ; apply a function to all tiles within the square
-(defn- transform-square [[n diag rows] [transform [r1 r2]]]
+(defn- transform-square [[n diag rows] [delta [r1 r2]]]
   (let [[xlo xhi ylo yhi] (corners n diag r1 r2)
         xys (for [x (range xlo (inc xhi)) y (range ylo (inc yhi))] [x y])]
-    [n diag (reduce #(apply-2 transform %1 %2) rows xys)]))
-
-; given a source of transforms, generate the parameters needed
-; to call transform-square as a lazy stream
-(defn- parameters [transform-factory state]
-  (lazy-seq
-    (let [[r1 state] (uniform-open state)
-          [r2 state] (uniform-open state)
-          [transform state] (transform-factory state)]
-      (cons [transform [r1 r2]] (parameters transform-factory state)))))
-
-; apply the transform n times using random parameters
-(defn- repeated-transform [ndr n transform-factory state]
-  (let [[n d r]
-        (reduce transform-square ndr
-          (take n
-            (parameters transform-factory state)))]
-    r))
+    [n diag (reduce #(apply-2 delta %1 %2) rows xys)]))
 
 ; this is the transform - we add/subtract a random amount from the value
 (defn- make-delta [state]
-  (let [[delta state] (range-closed (- DELTA) DELTA state)]
+  (let [[delta state] (range-closed DELTA state)]
     [#(+ delta %), state]))
 
+; given a source of transforms, generate the parameters needed
+; to call transform-square as a lazy stream
+(defn- parameters [state]
+  (lazy-seq
+    (let [[r1 state] (uniform-open state)
+          [r2 state] (uniform-open state)
+          [delta state] (make-delta state)]
+      (cons [delta [r1 r2]] (parameters state)))))
 
-; type ------------------------------------------------------------------------
-
-;options  from cli
-;diag     -1 or 1 to select diagonal
-;h-v-l    -1 or 1 to select variation of lighntess with hue
-;hue      base hue [0-1)
-;rows     standard integer state representation
-;         (rows of cols of int, starting at 0)
-(defrecord Square [options diag h-v-l hue rows]
-
-  Mosaic
-
-  (transform [this state]
-    (let [n (:tile-number options)
-          k (:complexity options)
-          rows (repeated-transform [n diag rows] (* k (expt n 2)) make-delta state)]
-      (Square. options diag h-v-l hue rows)))
-
-  (expand [this]
-    (let [n (:tile-number options)
-          k (:complexity options)
-          norm (* NORM DELTA (* k (expt n 0.8)))]
-      (floats-to-hsl options norm LIGHTNESS h-v-l hue rows))))
+; apply the transform n times using random parameters
+(defn- repeated-transform [n count state]
+  (let [rows (vec (repeat n (vec (repeat n 0))))
+        [diag state] (sign state)
+        [n d r]
+        (reduce transform-square [n diag rows]
+          (take count
+            (parameters state)))]
+    r))
 
 (defn square [options state]
-  (let [[diag h-v-l state] (sign-2 state)
-        [hue state] (uniform-open state)
-        n (:tile-number options)
-        rows (vec (repeat n (vec (repeat n 0))))]
-    [(Square. options diag h-v-l hue rows) state]))
+  (let [n (:tile-number options)
+        k (:complexity options)
+        rows (repeated-transform n (* k (expt n 2)) state)
+        norm (* NORM DELTA (* k (expt n 0.8)))]
+    (normalize norm rows)))

@@ -1,7 +1,10 @@
 (ns cl.parti.main
   (:use clojure.java.io)
-  (:use (cl.parti cli mosaic state png hsl utils))
+  (:use (cl.parti cli mosaic state png hsl utils random))
   (:gen-class ))
+
+
+(def LIGHTNESS 0.75) ; relative strength of l changes, relative to h
 
 
 ; input -----------------------------------------------------------------------
@@ -35,13 +38,12 @@
 ; generate --------------------------------------------------------------------
 
 (defn make-generate [options]
-  (let [n (:tile-number options)
-        k (:complexity options)
-        render (:render options)]
+  (let [render (:render options)]
     (fn [state]
-      (let [[mosaic state] (render options state)]
-        (expand
-          (transform mosaic state))))))
+      (let [rows (render options state)
+            [h-v-l state] (sign state)
+            [hue state] (uniform-open state)]
+        (floats-to-hsl options LIGHTNESS h-v-l hue rows)))))
 
 
 ; driver ----------------------------------------------------------------------
