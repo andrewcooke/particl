@@ -66,12 +66,15 @@
 ; convert rows of floats to rows of hsl values.
 
 (defn floats-to-hsl [options lightness h-v-l hue rows-11]
-  (defn to-hsl [x]
-    (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
-      [(fold (+ hue x)) 1 (clip (+ 0.5 (* lightness h-v-l x)))]))
-  (let [n (:tile-number options)
-        scale (:tile-size options)
-        colour (:border-colour options)
-        width (:border-width options)
-        hsl (map-rows to-hsl rows-11)]
-    (expand-mosaic n scale colour width hsl)))
+  (let [monochrome (:monochrome options)]
+    (defn to-hsl [x]
+      (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
+        [(if monochrome 0 (fold (+ hue x)))
+         (if monochrome 0 1)
+         (clip (+ 0.5 (* lightness h-v-l x)))]))
+    (let [n (:tile-number options)
+          scale (:tile-size options)
+          colour (:border-colour options)
+          width (:border-width options)
+          hsl (map-rows to-hsl rows-11)]
+      (expand-mosaic n scale colour width hsl))))

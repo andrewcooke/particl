@@ -186,6 +186,7 @@
     ["--http-path" "The prefix stripped from the path"]
     ["-k" "--complexity" "The image complexity (float, ~1)"]
     ["-r" "--render" "How image rendered (square, fourier)"]
+    ["-m" "--monochrome" "Greyscale images" :flag true]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true]
