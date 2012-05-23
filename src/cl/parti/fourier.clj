@@ -3,7 +3,7 @@
   (:use clojure.math.numeric-tower))
 
 
-(def ^:private NORM 3) ; scale for converting from shift to colours
+(def ^:private NORM 2) ; scale for converting from shift to colours
 
 
 (defn- expand-term [x i [phase amplitude]]
@@ -24,6 +24,8 @@
     (let [[phase state] (range-closed Math/PI state)
           [amplitude state] (uniform-open state)]
       (cons [phase amplitude] (coeff state)))))
+
+; TODO - ignores diag!
 
 (defn fourier [options state]
   (let [n (:tile-number options)

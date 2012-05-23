@@ -8,13 +8,13 @@
 (def HEX (Hex.))
 
 ; hash text to produce a queue of bytes
-(defn make-hash-string [hash]
+(defn word-input [hash]
   (fn [text]
     (let [hash (. MessageDigest getInstance hash)]
-      (.digest hash (.getBytes text)))))
+      (random (.digest hash (.getBytes text))))))
 
 ; hash stream of text to produce a queue of bytes
-(defn make-hash-stream [hash]
+(defn file-input [hash]
   (fn [stream]
     (let [hash (. MessageDigest getInstance hash)
           buffer-size 65535
@@ -24,19 +24,9 @@
           (if (not= n -1)
             (do (.update hash buffer 0 n) (recur))
             (do (.close stream) hash))))
-      (.digest (copy-stream)))))
+      (random (.digest (copy-stream))))))
 
-(defn string-state [hash]
-  (let [hash-string (make-hash-string hash)]
-    (fn [text]
-      (random (hash-string text)))))
-
-(defn stream-state [hash]
-  (let [hash-stream (make-hash-stream hash)]
-    (fn [stream]
-      (random (hash-stream stream)))))
-
-(defn hex-state [hash]
+(defn hex-input [hash]
   (fn [hex]
     (try
       (random (.decode HEX hex))

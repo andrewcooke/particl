@@ -1,12 +1,12 @@
 (ns cl.parti.dump-test
-  (:use (cl.parti dump fourier))
+  (:use (cl.parti dump square))
   (:use clojure.test))
 
 
-;(deftest test-dump-fourier
-;  (dump "/tmp/fourier.dmp" 9000000 fourier))
+;(deftest test-dump-square
+;  (time (dump "/tmp/square.dmp" 1000000 square)))
 
 (deftest test-hist-dump
-  (hist-dump "/tmp/fourier.dmp"))
+  (time (hist-dump "/tmp/square.dmp")))
 
 (run-tests)

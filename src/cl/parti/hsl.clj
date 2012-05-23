@@ -76,20 +76,6 @@
 (defn shift-scale [mn mx k]
   (+ (* mn (sgn k)) (* k (- mx mn))))
 
-; lightness and colour shifts are correlated through b, which is typically
-; fixed for a particular mosaic.  that means that colour changes are
-; correlated with brightness changes.
-(defn make-colourblind [n b]
-  ; complexity goes as n^x (x~2) so that we cover large mosaics, but
-  ; that means we need to turn down the step size.
-  (let [k (expt n -0.6)
-        [l-min l-max] [(* 0.05 k) (* 0.15 k)]
-        [r-min r-max] [(* 0.06 k) (* 0.2 k)]]
-    (fn [state]
-      (let [[k state] (range-closed 1 state)]
-        [#(lighten (inc (shift-scale l-min l-max k))
-            (rotate (shift-scale r-min r-max (* b k)) %))
-         state]))))
 
 (def white [0 0 1])
 (def black [0 0 0])

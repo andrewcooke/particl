@@ -8,7 +8,7 @@
 ; results, but difficult to quantify.
 
 (def ^:private DELTA 2) ; range over which values shift in a single square
-(def ^:private NORM 0.5) ; scale for converting from shift to colours
+(def ^:private NORM 0.3) ; scale for converting from shift to colours
 
 
 ; generate the corners of a square, given two random numbers
@@ -59,7 +59,6 @@
 
 (defn square [options state]
   (let [n (:tile-number options)
-        k (:complexity options)
-        rows (repeated-transform n (* k (expt n 2)) state)
-        norm (* NORM DELTA (* k (expt n 0.8)))]
+        rows (repeated-transform n (expt n 2) state)
+        norm (* NORM DELTA (expt n 0.8))]
     (normalize norm rows)))

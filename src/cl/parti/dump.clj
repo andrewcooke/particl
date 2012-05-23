@@ -3,7 +3,12 @@
   (:import java.io.File)
   (:import java.io.FileOutputStream)
   (:import java.io.FileInputStream)
+  (:import java.io.BufferedInputStream)
   (:use clojure.java.io))
+
+
+(def ^:private TILE-NUMBER 16)
+(def ^:private CHUNK-SIZE (/ (* TILE-NUMBER (inc TILE-NUMBER )) 2))
 
 
 ; convert [-1 1) to unsiged byte 0-255 then encode that in a signed byte
@@ -28,12 +33,10 @@
   (let [file (File. path)]
     (.createNewFile file)))
 
-(defn- measure [n path]
+(defn- measure [path]
   (let [file (File. path)
         bytes (.length file)]
-    (/ bytes (* n n))))
-
-(def ^:private TILE-NUMBER 16)
+    (/ bytes CHUNK-SIZE)))
 
 (defn- print-count [i factor]
   (cond
@@ -42,19 +45,25 @@
     (= 0 (mod i (* 10 factor))) (do (print "o") (flush))
     (= 0 (mod i factor)) (do (print ".") (flush))))
 
+(defn- triangle [n rows]
+  (if (= 0 n)
+    nil
+    (cons (take n (first rows)) (triangle (dec n) (rest rows)))))
+
 (defn dump [path n render]
-  (let [options {:tile-number TILE-NUMBER , :complexity 1}]
+  (let [options {:tile-number TILE-NUMBER}]
     (touch path)
-    (let [start (measure TILE-NUMBER path)
-          make-state (string-state "SHA-1")]
+    (let [start (measure path)
+          ; this forces diag for square and fourier
+          ; bit only tested w square to be consistent w triangle
+          make-state (fn [x] (cons 1 ((string-state "SHA-1") x)))]
       (println "skipping" start "existing entries")
       (with-open [out (FileOutputStream. path Boolean/TRUE)]
         (doseq [i (range start (+ start n))]
           (let [state (make-state (str i))
                 row-11 (render options state)]
             (print-count i 10)
-            (.write out (to-bytes row-11))))))))
-
+            (.write out (to-bytes (triangle TILE-NUMBER row-11)))))))))
 
 ; returns nil at eof, otherwise fills buffer
 (defn- fill-buffer [stream buffer offset target]
@@ -72,7 +81,7 @@
       nil)))
 
 (defn map-dump [path f]
-  (let [n (* TILE-NUMBER TILE-NUMBER)
+  (let [n CHUNK-SIZE
         buffer (byte-array (repeat n (byte 0)))]
     (with-open [in (FileInputStream. path)]
       (map-buffer in n f buffer))))
@@ -86,9 +95,9 @@
       acc)))
 
 (defn reduce-dump [path f zero]
-  (let [n (* TILE-NUMBER TILE-NUMBER)
+  (let [n CHUNK-SIZE
         buffer (byte-array (repeat n (byte 0)))]
-    (with-open [in (FileInputStream. path)]
+    (with-open [in (BufferedInputStream. (FileInputStream. path))]
       (reduce-buffer in n f zero buffer))))
 
 ; convert from signed byte to unsigned int [0 255]

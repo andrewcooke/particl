@@ -4,9 +4,6 @@
   (:use clojure.math.numeric-tower))
 
 
-(def OVERSHOOT 1.5)
-
-
 ; general utilities -----------------------------------------------------------
 
 (defn bracket-interpose [sep col]
@@ -52,7 +49,7 @@
 (defn make-sigmoid [k]
   (fn [x]
     (let [x (/ x k)]
-      (clip-11 (* OVERSHOOT (- (/ 2 (+ 1 (Math/exp (- x)))) 1))))))
+      (- (/ 2 (+ 1 (Math/exp (- x)))) 1))))
 
 (defn- de-mean [rows]
   (let [flat (flatten rows)

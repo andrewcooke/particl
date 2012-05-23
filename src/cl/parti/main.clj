@@ -1,6 +1,6 @@
 (ns cl.parti.main
   (:use clojure.java.io)
-  (:use (cl.parti cli mosaic state png hsl utils random))
+  (:use (cl.parti cli mosaic png hsl utils random))
   (:gen-class ))
 
 
@@ -26,13 +26,9 @@
 ; hash ------------------------------------------------------------------------
 
 (defn make-hash [options]
-  (let [join (partial apply str)
-        hash (:hash-algorithm options)
+  (let [hash (:hash-algorithm options)
         input (:input-type options)]
-    (case input
-      "hex" (hex-state hash)
-      "word" (string-state hash)
-      "file" (stream-state hash))))
+    (input hash)))
 
 
 ; generate --------------------------------------------------------------------
@@ -48,9 +44,6 @@
 
 ; driver ----------------------------------------------------------------------
 
-(defn http-driver [options]
-  (fn [print hash _] nil))
-
 (defn make-file-output [path]
   (fn [index rows]
     (when (and (= index 1) (= -1 (.indexOf path "%d")))
@@ -65,31 +58,25 @@
   (fn [index image]
     (error "gui-output " index image)))
 
-(defn make-generic-driver [output]
-  (fn [generate hash input]
-    (doall (map-indexed output (map (comp generate hash) input)))))
-
 (defn make-driver [options]
-  (let [scale (:tile-size options)
-        border [(:border-colour options) (:border-width options)]]
-    (if (:http-bind options)
-      (http-driver scale border options)
-      (make-generic-driver
-        (if (:output options)
-          (make-file-output (:output options))
-          (make-gui-output))))))
+  (let [output (if-let [out (:output options)] (make-file-output out) (make-gui-output))]
+    (fn [generate hash input]
+      (doall (map-indexed output (map (comp generate hash) input))))))
 
 
 ; main ------------------------------------------------------------------------
 
-; input generates a sequence (per file) of sources (unused by http).
+; input generates a sequence (per file).
 ; hash turns input into a "state".
 ; generate creates a mosaic from a state.
 ; driver drives the process and delivers the results.
-(defn -main [& args]
-  (let [[args options] (handle-args args)
-        driver (make-driver options)
-        generate (make-generate options)
+
+(defn particl [options args]
+  (let [input (make-input options args)
         hash (make-hash options)
-        input (make-input options args)]
+        generate (make-generate options)
+        driver (make-driver options)]
     (driver generate hash input)))
+
+(defn -main [& args]
+  (apply particl (handle-args args)))
