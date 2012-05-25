@@ -37,8 +37,8 @@
   (let [render (:render options)]
     (fn [state]
       (let [rows (render options state)
-            [h-v-l state] (sign state)
-            [hue state] (uniform-open state)]
+            [h-v-l state] (rand-sign state)
+            [hue state] (rand-real 1 state)]
         (floats-to-hsl options LIGHTNESS h-v-l hue rows)))))
 
 

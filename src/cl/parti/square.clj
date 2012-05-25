@@ -7,16 +7,25 @@
 ; located along a diagonal.  the first algorithm used here - gives good
 ; results, but difficult to quantify.
 
-(def ^:private DELTA 2) ; range over which values shift in a single square
+(def ^:private DELTA 100) ; range over which values shift in a single square
 (def ^:private NORM 0.3) ; scale for converting from shift to colours
 
 
+; r1 in [0 n), r2 in [0 (n-r1)) so r1, r2 both in [0 n), but r2 not uniform
+(defn rand-two-points [n state]
+  (let [[r1 state] (rand-byte n state)
+        [r2 state] (rand-byte (- n r1) state)]
+    [r1 r2 state]))
+
+; an integer in [-DELTA DELTA] (closed)
+(defn rand-range [state]
+  (let [[r state] (rand-byte (inc (* 2 DELTA)) state)]
+    [(- r DELTA) state]))
+
 ; generate the corners of a square, given two random numbers
 ; and an orientation
-(defn- corners [n diag r1 r2]
+(defn- corners [n diag side xlo]
   (let [m (dec n)
-        side (int (* n (expt r1 1.7)))
-        xlo (int (* (- n side) r2))
         xhi (+ xlo side)
         [ylo yhi] (if (> 0 diag) [xlo xhi] [(- m xhi) (- m xlo)])]
     [xlo xhi ylo yhi]))
@@ -35,26 +44,25 @@
 
 ; this is the transform - we add/subtract a random amount from the value
 (defn- make-delta [state]
-  (let [[delta state] (range-closed DELTA state)]
+  (let [[delta state] (rand-range state)]
     [#(+ delta %), state]))
 
 ; given a source of transforms, generate the parameters needed
 ; to call transform-square as a lazy stream
-(defn- parameters [state]
+(defn- parameters [n state]
   (lazy-seq
-    (let [[r1 state] (uniform-open state)
-          [r2 state] (uniform-open state)
+    (let [[r1 r2 state] (rand-two-points n state)
           [delta state] (make-delta state)]
-      (cons [delta [r1 r2]] (parameters state)))))
+      (cons [delta [r1 r2]] (parameters n state)))))
 
 ; apply the transform n times using random parameters
 (defn- repeated-transform [n count state]
   (let [rows (vec (repeat n (vec (repeat n 0))))
-        [diag state] (sign state)
+        [diag state] (rand-sign state)
         [n d r]
         (reduce transform-square [n diag rows]
           (take count
-            (parameters state)))]
+            (parameters n state)))]
     r))
 
 (defn square [options state]

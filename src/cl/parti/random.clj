@@ -1,4 +1,5 @@
 (ns cl.parti.random
+  (:use (cl.parti utils))
   (:import javax.crypto.Cipher)
   (:import javax.crypto.spec.SecretKeySpec)
   (:import javax.crypto.spec.IvParameterSpec))
@@ -51,47 +52,36 @@
       (parallel (for [i (range n)] (init-aes hash i))))))
 
 
-; various helpers that take the seq of bytes and return a useful
-; value plus a new sequence.
-
-; [-127 127]
-(defn unbiased-byte [stream]
-  (let [b (first stream)
-        stream (rest stream)]
-    (if (= -128 b) (recur stream) [b stream])))
+; [-128 127]
+(defn rand-signed-byte [state]
+  (let [[r & state] state]
+    [r state]))
 
 ; [0 255]
-(defn whole-byte [stream]
-  [(+ 128 (first stream)) (rest stream)])
+(defn rand-unsigned-byte [state]
+  (let [[r state] (rand-signed-byte state)]
+    [(unsign-byte r) state]))
 
-; [0.0 1.0)
-(defn uniform-open [stream]
-  (let [b (first stream)
-        stream (rest stream)]
-    [(/ (+ 128 b) 256.0) stream]))
+; [0 n)
+(defn rand-real [n state]
+  (let [[r state] (rand-unsigned-byte state)]
+    [(* n (/ r 256.0)) state]))
 
-; [0.0 1.0]
-(defn uniform-closed [stream]
-  (let [b (first stream)
-        stream (rest stream)]
-    [(/ (+ 128 b) 255.0) stream]))
+(defn- bitmask
+  ([n] (if (< n 2) n (bitmask (bit-shift-right n 1) 1)))
+  ([n m] (if (= 0 n) m (recur (bit-shift-right n 1) (inc (* 2 m))))))
 
-; [lo hi]
-(defn range-closed
-  ([hi stream] (range-closed (- hi) hi stream))
-  ([lo hi stream]
-    (let [[x stream] (uniform-closed stream)]
-      [(+ lo (* x (- hi lo))) stream])))
+; [0 n) (matches rand-int)
+(defn rand-byte [n state]
+  (assert (> n 0))
+  (assert (< n 257))
+  (let [[r state] (rand-unsigned-byte state)
+        m (bitmask (dec n))
+        r (bit-and r m)]
+    (if (< r n) [r state] (recur n state))))
 
-; 1 or -1
+; -1 or 1
+(defn rand-sign [state]
+  (let [[r state] (rand-byte 2 state)]
+    [(if (= 1 r) r -1) state]))
 
-(defn- z-neg [x]
-  (if (= x 0) -1 x))
-
-(defn sign [state]
-  (let [[b state] (whole-byte state)]
-    [(z-neg (bit-and b 1)) state]))
-
-(defn sign-2 [state]
-  (let [[b state] (whole-byte state)]
-    [(z-neg (bit-and b 1)) (z-neg (/ (bit-and b 2) 2)) state]))

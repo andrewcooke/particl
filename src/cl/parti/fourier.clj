@@ -21,15 +21,15 @@
 
 (defn- coeff [state]
   (lazy-seq
-    (let [[phase state] (range-closed Math/PI state)
-          [amplitude state] (uniform-open state)]
+    (let [[phase state] (rand-real (* 2 Math/PI) state)
+          [amplitude state] (rand-real 1)]
       (cons [phase amplitude] (coeff state)))))
 
 ; TODO - ignores diag!
 
 (defn fourier [options state]
   (let [n (:tile-number options)
-        [diag state] (sign state)
+        [diag state] (rand-sign state)
         coeffs (vec (take (dec n) (coeff state)))
         rows (coeffs-to-rows n coeffs)]
     (normalize NORM rows)))

@@ -21,7 +21,7 @@
 (defn sqr [x] (* x x))
 
 (defn assert-stats [s mean sd err]
-  (let [n (count s)
+  (let [n (float (count s))
         s-mean (/ (apply + s) n)
         s-sd (sqrt (/ (apply + (map #(sqr (- % s-mean)) s)) n))]
     (println "mean" (double s-mean) "sd" (double s-sd))
@@ -64,5 +64,16 @@
 ;    (println values)
 ;    (println s)
     (is (= (apply + sizes) (count s)))))
+
+(defn rand-stream [f state]
+  (lazy-seq
+    (let [[r state] (f state)]
+      (cons r (rand-stream f state)))))
+
+(deftest test-rubho
+  (doseq [n (range 12 256)]
+    (let [s (random (byte-array 1 (byte (bit-and n 127))))
+          r (rand-stream (partial rand-byte n) s)]
+      (assert-stats (take 10000 r) (/ (dec n) 2.0) (/ (dec n) (sqrt 12)) 0.1))))
 
 (run-tests)
