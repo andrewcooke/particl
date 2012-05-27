@@ -122,7 +122,7 @@ want to access the key stream."}
   [data index]
   (byte-array
     (for [i (range KEY_SIZE)]
-      (nth data (+ i (* index KEY_SIZE)) 0))))
+      (nth data (+ i (* index KEY_SIZE)) (byte 0)))))
 
 (defn- single
   "Create a stream of random bytes using AES in CTR mode, with a key from the
@@ -152,6 +152,11 @@ want to access the key stream."}
         (parallel (for [i (range n)] (single data i)))))))
 
 ;; ## Extract values from the random stream
+;;
+;; All the extraction functions return a value and a new stream.  The
+;; new stream must be used in future calls (using the old stream will
+;; not trigger an error, but will return the same value as the previous
+;; call).
 
 (defn rand-signed-byte
   "Generate a pseudo-random, uniformly distributed, signed byte in the
