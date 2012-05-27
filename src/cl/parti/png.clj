@@ -1,4 +1,10 @@
-(ns cl.parti.png
+(ns ^{:doc "
+
+A simple interface to the excellent pngj library.
+
+"
+      :author "andrew@acooke.org"}
+  cl.parti.png
   (:use (cl.parti hsl))
   (:use clojure.math.numeric-tower)
   (:import ar.com.hjg.pngj.PngWriter)
@@ -9,20 +15,17 @@
   )
 
 
-; match pngj to the print-mosaic function.
-
-; in the routines below (which take os and return two functions:
-; - os is the output stream for the file
-; - size is the number of pixels on a square edge
-; - rows is nested lists of rgb colours
-;   so rows = [row]; row = [col]; col = [r g b]
-; - hsl is a hsl colour triplet
-
-(defn hsl-to-8-bit [hsl]
+(defn hsl-to-8-bit
+  "Convert an HSL triplet of floats to an RGB triplet of unsigned bytes."
+  [hsl]
   (map (fn [x] (int (* 255 x))) (rgb hsl)))
 
-; a simple, 8 bit file, with one value per pixel.
-(defn print-png-8-bit [os]
+(defn print-png-8-bit
+  "Write a 2D nested sequence of HSL triplets to an 8-bit PNG file.
+
+  This matches the API expected by `cl.parti.mosaic.print-rows`.  It
+  returns two functions; the first prints the data converted by the first."
+  [os]
   [(fn [size rows]
      ; 8 bits, no alpha, no grayscale, not indexed
      (let [info (ImageInfo. size size 8 Boolean/FALSE Boolean/FALSE Boolean/FALSE)
@@ -35,10 +38,15 @@
        (.end writer)))
    hsl-to-8-bit])
 
-; an indexed file.  mosaics have many identical pixels, so this should be
-; significantly more compact.
-; we still use 8 bits - no attempt is made to pack bits for small mosics.
-(defn print-png-indexed [os]
+(defn print-png-indexed
+  "Write a 2D nested sequence of HSL triplets to an indexed PNG file.
+  This should be more compact than the equivalent 8-bit file, but is
+  restricted to a maximum of 256 distinct colours.  The index is 8-bit
+  (in theory we could use smaller indices for small mosaics).
+
+  This matches the API expected by `cl.parti.mosaic.print-rows`.  It
+  returns two functions; the first prints the data converted by the first."
+  [os]
   (let [colours (atom {})]
     [(fn [size rows]
        ; 8 bits, no alpha, no grayscale, indexed

@@ -1,29 +1,39 @@
-(ns cl.parti.hsl
-  (:use (cl.parti random))
+(ns ^{:doc "
+
+A simple library for manipulating HSL values.  HSL is a 'colour space'
+similar to RGB or HSV.  It contains three values (hue, saturation and
+lightness) which are represented here as a triplet of floats in the range
+[0-1].
+
+HSL is used because the natural (single components) transformations give
+better support for colourblind users.  At maximum saturation, varying
+luminosity goes from black, through colour, to white.  In contrast, HSV
+goes only from black to fully saturated colour.
+
+"
+      :author "andrew@acooke.org"}
+  cl.parti.hsl
+  (:use (cl.parti random utils))
   (:use clojure.math.numeric-tower))
 
 
-; a very simple, minimal implementation of hsl/rgb conversion and a few
-; operations needed to modify the mosaics.
-
-; hsl is used rather than hsv because the natural (single components)
-; transformations give better support for colourblind users (at maximum
-; saturation, varying luminosity goes from black, through colour, to white,
-; while hsv goes only from black to fully saturated colour).
-
-; clip within the range [0 1]
-(defn clip [x]
+(defn clip
+  "Clip a value to lie within the range [0-1]."
+  [x]
   (cond
     (< x 0) 0
     (> x 1) 1
     :else (float x))) ; drop clojure's fractional values
 
-; fold with the range [0 1)
-(defn fold [x]
+(defn fold
+  "Fold a value to lie within the range [0-1]."
+  [x]
   (mod x 1))
 
-; https://en.wikipedia.org/wiki/HSL_and_HSV#From_HSL
-(defn rgb [[h s l]]
+(defn rgb
+  "Convert an HSL triplet to RGB.  This uses the algorithm described at
+  [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV#From_HSL)."
+  [[h s l]]
   (let [h (* 6 (fold h))
         s (clip s)
         l (clip l)
@@ -41,8 +51,10 @@
         m (- l (/ chroma 2))]
     [(+ r m) (+ g m) (+ b m)]))
 
-; https://en.wikipedia.org/wiki/HSL_and_HSV#Formal_derivation
-(defn hsl [[r g b]]
+(defn hsl
+  "Convert an RGB triplet to HSV.  Again, this uses an algorithm described at
+  [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV#Formal_derivation)."
+  [[r g b]]
   (let [r (clip r)
         g (clip g)
         b (clip b)
@@ -62,20 +74,17 @@
           (/ chroma (- 1 (abs (dec (* 2 l))))))]
     [h s l]))
 
-; lightness is multiplied by k which should be ~1
-(defn lighten [k [h s l]]
+(defn lighten
+  "Scale lightness by the given factor."
+  [k [h s l]]
   [h s (clip (* k l))])
 
-; k is added to h (total rotation is 1)
-(defn rotate [k [h s l]]
+(defn rotate
+  "Rotate hue by the given amount (a complete rotation requires a change of 1)."
+  [k [h s l]]
   [(fold (+ k h)) s l])
 
-(defn sgn [x]
-  (cond (< x 0) -1 (> x 0) 1 :else 0))
-
-(defn shift-scale [mn mx k]
-  (+ (* mn (sgn k)) (* k (- mx mn))))
-
+;; Some HSL colours for testing, etc.
 
 (def white [0 0 1])
 (def black [0 0 0])

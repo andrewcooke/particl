@@ -1,4 +1,10 @@
-(ns cl.parti.fourier
+(ns ^{:doc "
+
+An alternative renderer to `square`.  Currently broken.
+
+"
+      :author "andrew@acooke.org"}
+  cl.parti.fourier
   (:use (cl.parti random mosaic hsl))
   (:use clojure.math.numeric-tower))
 
@@ -27,9 +33,9 @@
 
 ; TODO - ignores diag!
 
-(defn fourier [options state]
-  (let [n (:tile-number options)
-        [diag state] (rand-sign state)
-        coeffs (vec (take (dec n) (coeff state)))
-        rows (coeffs-to-rows n coeffs)]
-    (normalize NORM rows)))
+(defn fourier [n]
+  (fn [state]
+    (let [[diag state] (rand-sign state)
+          coeffs (vec (take (dec n) (coeff state)))
+          rows (coeffs-to-rows n coeffs)]
+      (normalize NORM rows))))

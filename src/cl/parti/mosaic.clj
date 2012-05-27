@@ -1,20 +1,37 @@
-(ns cl.parti.mosaic
+(ns ^{:doc "
+
+Utilities used by the render and display functions.
+
+"
+      :author "andrew@acooke.org"}
+  cl.parti.mosaic
   (:use (cl.parti random hsl))
   (:import java.lang.Math)
   (:use clojure.math.numeric-tower))
 
+;; ## Mosaic expansion
 
-; general utilities -----------------------------------------------------------
-
-(defn bracket-interpose [sep col]
+(defn bracket-interpose
+  "Extend the standard `interpose` function, adding an additional copy
+  of the padding at either end of the sequence."
+  [sep col]
   (concat [sep] (interpose sep col) [sep]))
 
-(defn no-interpose [sep col]
+(defn no-interpose
+  "A replacement for `interpose` that discards the additional padding.  Used
+  when no background is required."
+  [sep col]
   col)
 
-; expand a set of rows of cols of hsls into a mosaic, repeating pixels
-; and adding borders
-(defn expand-mosaic [n scale colour width rows]
+(defn expand-mosaic
+  "The mosaic is generated using a single value / pixel per tile.  This is
+  all that is necessary during generation, since each tile is uniform.
+  However, during rendering, each tile must be expanded, and the background
+  grid (or 'grout') introduced.
+
+  This is achieved here by `repeat`ing tile pixels and then `interpose`ing
+  the background."
+  [n scale colour width rows]
   (let [size (+ (* n scale) (* (inc n) width))
         horizontal (repeat width (repeat size colour))
         vertical (repeat width colour)
@@ -28,50 +45,41 @@
                 (for [col row]
                   (repeat scale col))))))))))
 
-(defn map-rows [f rows]
+;; ## General utilities
+
+(defn map-rows
+  "The 2d mosaic is generally modelled as sequences of sequences.  This
+  defines a shape-preserving map over the values."
+  [f rows]
   (for [row rows]
     (for [col row] (f col))))
 
-(defn print-rows [[printer convert] rows]
+(defn print-rows
+  "This defines a simple API used to print the mosaic, implemented by the
+  `cl.parti.png` module.  Two functions are used - one converts each
+  pixel; the other is passed the mosaic dimension and the converted values."
+  [[printer convert] rows]
   (printer (count rows) (map-rows convert rows)))
 
+;; ## Range reduction
 
-; float rows ------------------------------------------------------------------
-
-; normalize rows of floats so that they are [-1 1]
-
-(defn- clip-11 [x]
-  (cond
-    (< x -1) -1
-    (> x 1) 1
-    :else x))
-
-(defn make-sigmoid [k]
+(defn make-sigmoid
+  "Given a scale factor, generate a function that maps values to (-1 1)."
+  [k]
   (fn [x]
     (let [x (/ x k)]
       (- (/ 2 (+ 1 (Math/exp (- x)))) 1))))
 
-(defn- de-mean [rows]
+(defn- de-mean
+  "Subtract the mean value from a mosaic (2D nested sequence) of floats."
+  [rows]
   (let [flat (flatten rows)
         mean (/ (apply + flat) (count flat))]
     (map-rows #(- % mean) rows)))
 
-(defn normalize [norm rows]
+(defn normalize
+  "Normalize a mosaic (2D nested sequence) of floats by subtracting the mean
+  and then using a sigmoid to map into (-1 1)."
+  [norm rows]
   (let [rows (de-mean rows)]
     (map-rows (make-sigmoid norm) rows)))
-
-; convert rows of floats to rows of hsl values.
-
-(defn floats-to-hsl [options lightness h-v-l hue rows-11]
-  (let [monochrome (:monochrome options)]
-    (defn to-hsl [x]
-      (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
-        [(if monochrome 0 (fold (+ hue x)))
-         (if monochrome 0 1)
-         (clip (+ 0.5 (* lightness h-v-l x)))]))
-    (let [n (:tile-number options)
-          scale (:tile-size options)
-          colour (:border-colour options)
-          width (:border-width options)
-          hsl (map-rows to-hsl rows-11)]
-      (expand-mosaic n scale colour width hsl))))

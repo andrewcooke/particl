@@ -1,4 +1,11 @@
-(ns cl.parti.dump
+(ns ^{:doc "
+
+Experimental code, in development, to try assess the equivalent number of
+bits in a graphical hash.
+
+"
+      :author "andrew@acooke.org"}
+  cl.parti.dump
   (:use (cl.parti state mosaic))
   (:import java.io.File)
   (:import java.io.FileOutputStream)
@@ -8,7 +15,7 @@
 
 
 (def ^:private TILE-NUMBER 16)
-(def ^:private CHUNK-SIZE (/ (* TILE-NUMBER (inc TILE-NUMBER )) 2))
+(def ^:private CHUNK-SIZE (/ (* TILE-NUMBER (inc TILE-NUMBER)) 2))
 
 
 ; convert [-1 1) to unsiged byte 0-255 then encode that in a signed byte

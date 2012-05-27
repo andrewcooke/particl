@@ -1,4 +1,9 @@
-(ns cl.parti.square
+(ns ^{:doc "
+
+
+"
+      :author "andrew@acooke.org"}
+  cl.parti.square
   (:use (cl.parti random mosaic hsl))
   (:use clojure.math.numeric-tower))
 
@@ -37,10 +42,10 @@
     (assoc rows x (assoc row y val))))
 
 ; apply a function to all tiles within the square
-(defn- transform-square [[n diag rows] [delta [r1 r2]]]
+(defn- transform-square [[n diag rows] [delta [r1 r2] state]]
   (let [[xlo xhi ylo yhi] (corners n diag r1 r2)
         xys (for [x (range xlo (inc xhi)) y (range ylo (inc yhi))] [x y])]
-    [n diag (reduce #(apply-2 delta %1 %2) rows xys)]))
+    [n diag (reduce #(apply-2 delta %1 %2) rows xys) state]))
 
 ; this is the transform - we add/subtract a random amount from the value
 (defn- make-delta [state]
@@ -53,20 +58,20 @@
   (lazy-seq
     (let [[r1 r2 state] (rand-two-points n state)
           [delta state] (make-delta state)]
-      (cons [delta [r1 r2]] (parameters n state)))))
+      (cons [delta [r1 r2] state] (parameters n state)))))
 
 ; apply the transform n times using random parameters
 (defn- repeated-transform [n count state]
   (let [rows (vec (repeat n (vec (repeat n 0))))
         [diag state] (rand-sign state)
-        [n d r]
+        [n d r s]
         (reduce transform-square [n diag rows]
           (take count
             (parameters n state)))]
-    r))
+    [r s]))
 
-(defn square [options state]
-  (let [n (:tile-number options)
-        rows (repeated-transform n (expt n 2) state)
-        norm (* NORM DELTA (expt n 0.8))]
-    (normalize norm rows)))
+(defn square [n]
+  (fn [state]
+    (let [[rows state] (repeated-transform n (expt n 2) state)
+          norm (* NORM DELTA (expt n 0.8))]
+      [(normalize norm rows) state])))
