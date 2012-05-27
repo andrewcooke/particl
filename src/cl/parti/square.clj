@@ -19,10 +19,10 @@ retrospect the following properties are important:
   builder, where all the images are 'tartan-like' and become easy to
   confuse.
 
-- **Tiles.**  This serves two purposes.  First, it allows more accurate
-  comparison in the variation of tone between images (it clarifies whether
-  an area of similar colour is flat or varying).  Second, it gives the
-  impression of a 'computer generated', qualitative object.
+- **Tiles.**  These serve two purposes.  First, they allow more accurate
+  comparison in the variation of tone between images (whether an area of
+  similar colours is flat or varying).  Second, they give the impression
+  of a 'computer generated', qualitative object (something like a barcode).
 
 - **Saturated colours.**  These give a 'jewel-like' feel and help separate
   the image from a variety of contexts.
@@ -104,7 +104,7 @@ convert these values to colours.
   NORM 0.3)
 
 (defn- apply-2
-  "Apply function `f` to the value in the nested 2D sequence `rows` at
+  "Apply function `f` to the value in the 2D nested sequences `rows` at
   (`x`,`y`)."
   [f rows [x y]]
   (let [row (rows x)
@@ -126,7 +126,7 @@ convert these values to colours.
   "Pull all the above together - generate a sequence of random parameters
   and then iterate over them, repeatedly transforming the mosaic.
 
-  Returns the final mosaic (nested 2D sequence of un-normalized floats)
+  Returns the final mosaic (2D nested sequences of un-normalized integers)
   and the latest state."
   [n count state]
   (let [rows (vec (repeat n (vec (repeat n 0))))
@@ -138,7 +138,7 @@ convert these values to colours.
     [r s]))
 
 (defn square
-  "The render function.  The output from `repeated-tranform` is normalized
+  "The render function.  The output from `repeated-transform` is normalized
   to the range (-1 1).
 
   Some parameters are inferred from the mosaic size, `n`, to give a

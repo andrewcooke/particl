@@ -3940,10 +3940,10 @@ structured becomes more important than the details of the structure.
 This is hard to explain, but easy to see in images from the <code>fourier</code>
 builder, where all the images are 'tartan-like' and become easy to
 confuse.</p></li>
-<li><p><strong>Tiles.</strong>  This serves two purposes.  First, it allows more accurate
-comparison in the variation of tone between images (it clarifies whether
-an area of similar colour is flat or varying).  Second, it gives the
-impression of a 'computer generated', qualitative object.</p></li>
+<li><p><strong>Tiles.</strong>  These serve two purposes.  First, they allow more accurate
+comparison in the variation of tone between images (whether an area of
+similar colours is flat or varying).  Second, they give the impression
+of a 'computer generated', qualitative object (something like a barcode).</p></li>
 <li><p><strong>Saturated colours.</strong>  These give a 'jewel-like' feel and help separate
 the image from a variety of contexts.</p></li>
 </ul>
@@ -4006,7 +4006,7 @@ convert these values to colours.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Scale for converting for normalisation.  Smaller values emphasise
   middle ranges in the data.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
-  NORM 0.3)</pre></td></tr><tr><td class="docs"><p>Apply function <code>f</code> to the value in the nested 2D sequence <code>rows</code> at
+  NORM 0.3)</pre></td></tr><tr><td class="docs"><p>Apply function <code>f</code> to the value in the 2D nested sequences <code>rows</code> at
   (<code>x</code>,<code>y</code>).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- apply-2
   [f rows [x y]]
@@ -4023,7 +4023,7 @@ convert these values to colours.</p>
     [n diag (reduce #(apply-2 delta %1 %2) rows xys) state]))</pre></td></tr><tr><td class="docs"><p>Pull all the above together - generate a sequence of random parameters
   and then iterate over them, repeatedly transforming the mosaic.</p>
 
-<p>  Returns the final mosaic (nested 2D sequence of un-normalized floats)
+<p>  Returns the final mosaic (2D nested sequences of un-normalized integers)
   and the latest state.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- repeated-transform
   [n count state]
@@ -4033,7 +4033,7 @@ convert these values to colours.</p>
         (reduce transform-square [n diag rows]
           (take count
             (parameters n state)))]
-    [r s]))</pre></td></tr><tr><td class="docs"><p>The render function.  The output from <code>repeated-tranform</code> is normalized
+    [r s]))</pre></td></tr><tr><td class="docs"><p>The render function.  The output from <code>repeated-transform</code> is normalized
   to the range (-1 1).</p>
 
 <p>  Some parameters are inferred from the mosaic size, <code>n</code>, to give a
@@ -4048,30 +4048,48 @@ convert these values to colours.</p>
   (fn [state]
     (let [[rows state] (repeated-transform n (expt n 2) state)
           norm (* NORM DELTA (expt n 0.8))]
-      [(normalize norm rows) state])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.utils" name="cl.parti.utils"><h1 class="project-name">cl.parti.utils</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+      [(normalize norm rows) state])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.utils" name="cl.parti.utils"><h1 class="project-name">cl.parti.utils</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Various utilitiy functions.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
   cl.parti.utils
-  (:import org.apache.commons.codec.binary.Hex))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn error [&amp; msg]
+  (:import org.apache.commons.codec.binary.Hex))</pre></td></tr><tr><td class="docs"><p>Display an error message and exit.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn error
+  [&amp; msg]
   (println (apply str msg))
-  (System/exit 1))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn ?merge [map extra]
+  (System/exit 1))</pre></td></tr><tr><td class="docs"><p>Merge the contents of <code>extra</code> with <code>map</code>.  The result contains
+  all the key-value pairs from <code>map</code>, plus those for additional keys
+  from <code>extra</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn ?merge
+  [map extra]
   (reduce (fn [map [k v]] (if (map k) map (assoc map k v)))
-    map extra))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn unsign-byte [b]
+    map extra))</pre></td></tr><tr><td class="docs"><p>Convert an signed byte (the Java native type) to an integer value
+  whose bits in the least significant byte are identical to the bits
+  in the original byte.</p>
+
+<p>  This is <em>not</em> eqiuvalent to taking the absolute value.  For example,
+  <code>-1</code> becomes <code>255</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn unsign-byte
+  [b]
   (if (&lt; b 0)
     (+ 256 b)
-    b))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn sign-byte [b]
+    b))</pre></td></tr><tr><td class="docs"><p>Convert an integer value, assumed to be in the range [0 256), to
+  a signed byte (the Java native type) whose bits are identical to the bits
+  in the least significant byte of the original value.</p>
+
+<p>  For example, 255 becomes -1.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn sign-byte
+  [b]
   (byte (if (&gt; b 127)
           (- b 256)
-          b)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn sgn [x]
+          b)))</pre></td></tr><tr><td class="docs"><p>Return the sign of <code>x</code> (a value in [-1 1]).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn sgn
+  [x]
   (cond (&lt; x 0) -1 (&gt; x 0) 1 :else 0))</pre></td></tr><tr><td class="docs"><p>A utility for parsing hexadecimal values.</p>
-</td><td class="codes"><pre class="brush: clojure">(def  HEX (Hex.))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn parse-hex [hex]
-  (.decode HEX hex))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn format-hex [hex]
+</td><td class="codes"><pre class="brush: clojure">(def  HEX (Hex.))</pre></td></tr><tr><td class="docs"><p>Convert a string of hex digits to an array of bytes.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn parse-hex
+  [hex]
+  (.decode HEX hex))</pre></td></tr><tr><td class="docs"><p>Convert an array of bytes to a string of hex digits.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn format-hex
+  [hex]
   (Hex/encodeHexString hex))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
        SyntaxHighlighter.all()</script></body></html>

@@ -1,5 +1,6 @@
 (ns ^{:doc "
 
+Various utilitiy functions.
 
 "
       :author "andrew@acooke.org"}
@@ -7,32 +8,57 @@
   (:import org.apache.commons.codec.binary.Hex))
 
 
-(defn error [& msg]
+(defn error
+  "Display an error message and exit."
+  [& msg]
   (println (apply str msg))
   (System/exit 1))
 
-(defn ?merge [map extra]
+(defn ?merge
+  "Merge the contents of `extra` with `map`.  The result contains
+  all the key-value pairs from `map`, plus those for additional keys
+  from `extra`."
+  [map extra]
   (reduce (fn [map [k v]] (if (map k) map (assoc map k v)))
     map extra))
 
-(defn unsign-byte [b]
+(defn unsign-byte
+  "Convert an signed byte (the Java native type) to an integer value
+  whose bits in the least significant byte are identical to the bits
+  in the original byte.
+
+  This is *not* eqiuvalent to taking the absolute value.  For example,
+  `-1` becomes `255`."
+  [b]
   (if (< b 0)
     (+ 256 b)
     b))
 
-(defn sign-byte [b]
+(defn sign-byte
+  "Convert an integer value, assumed to be in the range [0 256), to
+  a signed byte (the Java native type) whose bits are identical to the bits
+  in the least significant byte of the original value.
+
+  For example, 255 becomes -1."
+  [b]
   (byte (if (> b 127)
           (- b 256)
           b)))
 
-(defn sgn [x]
+(defn sgn
+  "Return the sign of `x` (a value in [-1 1])."
+  [x]
   (cond (< x 0) -1 (> x 0) 1 :else 0))
 
 
 (def ^{:doc "A utility for parsing hexadecimal values."} HEX (Hex.))
 
-(defn parse-hex [hex]
+(defn parse-hex
+  "Convert a string of hex digits to an array of bytes."
+  [hex]
   (.decode HEX hex))
 
-(defn format-hex [hex]
+(defn format-hex
+  "Convert an array of bytes to a string of hex digits."
+  [hex]
   (Hex/encodeHexString hex))
