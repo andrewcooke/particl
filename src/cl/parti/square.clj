@@ -52,26 +52,16 @@ convert these values to colours.
   DELTA 127)
 
 (defn- rand-two-points
-  "Generate two values, `r1` and `r2`, selecting the first from a uniform
-  distribution in the range [0 n) and the second in the range [0 (n-r1)).
-  This means that `r1` and `r1+r2` are both in [0 n)."
+  "Generate two values, `side` and `offset`, selecting the first from a uniform
+  distribution in the range [0 n) and the second in the range [0 (n-side)).
+  This means that `side` and `side+offset` are both in [0 n).
+
+  The value of `side` is then incremented by 1 to give a non-zero square,
+  which `offset` will position on the diagonal."
   [n state]
-  (let [[r1 state] (rand-byte n state)
-        [r2 state] (rand-byte (- n r1) state)]
-    [r1 r2 state]))
-
-(defn- corners
-  "These values generated above are used to select a square along the diagonal
-  of the mosaic.  The length of the side of the square is taked from `r1`
-  above; its offset is taken from `r2`.
-
-  `diag` is 1 or -1 and defines the diagonal for the mosaic.
-  `n` is the size of the mosaic (the number of tiles along one side)."
-  [n diag side xlo]
-  (let [m (dec n)
-        xhi (+ xlo side)
-        [ylo yhi] (if (> 0 diag) [xlo xhi] [(- m xhi) (- m xlo)])]
-    [xlo xhi ylo yhi]))
+  (let [[side state] (rand-byte n state)
+        [offset state] (rand-byte (- n side) state)]
+    [(inc side) offset state]))
 
 (defn- rand-range
   "Generate a uniformly distributed pseudo-random integer in the range
@@ -92,9 +82,9 @@ convert these values to colours.
   been made."
   [n state]
   (lazy-seq
-    (let [[r1 r2 state] (rand-two-points n state)
+    (let [[side offset state] (rand-two-points n state)
           [delta state] (rand-range state)]
-      (cons [delta [r1 r2] state] (parameters n state)))))
+      (cons [delta side offset state] (parameters n state)))))
 
 ;; ## The transformation
 
@@ -113,14 +103,13 @@ convert these values to colours.
 
 ; apply a function to all tiles within the square
 (defn- transform-square
-  "Add `delta` to the square defined by `r1` and `r2`.
+  "Add `delta` to the square defined by `side` and `offset`.
 
   Again, the latest `state` is made available for use by the caller."
-  [[n diag rows] [delta [r1 r2] state]]
-  (let [[xlo xhi ylo yhi] (corners n diag r1 r2)
-        xys (for [x (range xlo (inc xhi)) y (range ylo (inc yhi))] [x y])
+  [[n rows] [delta side offset state]]
+  (let [xys (for [x (range side) y (range side)] [(+ x offset) (+ y offset)])
         delta #(+ delta %)]
-    [n diag (reduce #(apply-2 delta %1 %2) rows xys) state]))
+    [n (reduce #(apply-2 delta %1 %2) rows xys) state]))
 
 (defn- repeated-transform
   "Pull all the above together - generate a sequence of random parameters
@@ -130,12 +119,11 @@ convert these values to colours.
   and the latest state."
   [n count state]
   (let [rows (vec (repeat n (vec (repeat n 0))))
-        [diag state] (rand-sign state)
-        [n d r s]
-        (reduce transform-square [n diag rows]
+        [n rows state]
+        (reduce transform-square [n rows]
           (take count
             (parameters n state)))]
-    [r s]))
+    [rows state]))
 
 (defn square
   "The render function.  The output from `repeated-transform` is normalized

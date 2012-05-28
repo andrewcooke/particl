@@ -51,7 +51,8 @@ Various utilitiy functions.
   (cond (< x 0) -1 (> x 0) 1 :else 0))
 
 
-(def ^{:doc "A utility for parsing hexadecimal values."} HEX (Hex.))
+(def ^:private ^{:doc "A utility instance for managing hexadecimal values."}
+  HEX (Hex.))
 
 (defn parse-hex
   "Convert a string of hex digits to an array of bytes."

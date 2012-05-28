@@ -12,8 +12,8 @@ cipher in counter mode should be appropriate.  However, standard Java only
 supports block ciphers up to 128 bit keys.  To extend the key space multiple
 ciphers are run in parallel; their results are combined using xor.
 
-*IMPORTANT* - The approach and code here need review by someone more competent
-than me.
+*IMPORTANT* - The approach and code here need review by someone more
+knowledgeable than me.
 
 "
       :author "andrew@acooke.org"}

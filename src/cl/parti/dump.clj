@@ -6,7 +6,7 @@ bits in a graphical hash.
 "
       :author "andrew@acooke.org"}
   cl.parti.dump
-  (:use (cl.parti state mosaic))
+  (:use (cl.parti square input utils))
   (:import java.io.File)
   (:import java.io.FileOutputStream)
   (:import java.io.FileInputStream)
@@ -14,36 +14,28 @@ bits in a graphical hash.
   (:use clojure.java.io))
 
 
-(def ^:private TILE-NUMBER 16)
-(def ^:private CHUNK-SIZE (/ (* TILE-NUMBER (inc TILE-NUMBER)) 2))
-
-
-; convert [-1 1) to unsiged byte 0-255 then encode that in a signed byte
-; (0 -> 0, 1 -> 1, ... 127 -> 127, 128 -> -128, ... 255 -> -1)
-; (actual range is [-1 1], but with rounding etc this seems to be best)
-
-(defn- to-unsigned [x]
-  (let [x (int (* (inc x) 128))]
-    (cond
-      (> x 255) 255
-      (< x 0) 0
-      :else x)))
+(defn- triangle
+  ([rows] (triangle rows 1))
+  ([rows n]
+    (let [rows (seq rows)]
+      (if rows
+        (cons (take n (first rows)) (triangle (rest rows) (inc n)))
+        nil))))
 
 (defn- to-byte [x]
-  (let [x (to-unsigned x)]
-    (byte (if (< x 128) x (- x 256)))))
+  (sign-byte (int (* x 127))))
 
-(defn- to-bytes [rows]
-  (byte-array (flatten (map-rows to-byte rows))))
+(defn- pack [rows]
+  (byte-array (map to-byte (flatten (triangle rows)))))
 
 (defn- touch [path]
   (let [file (File. path)]
     (.createNewFile file)))
 
-(defn- measure [path]
+(defn- measure [path n]
   (let [file (File. path)
         bytes (.length file)]
-    (/ bytes CHUNK-SIZE)))
+    (/ (* 2 bytes) (* n (inc n)))))
 
 (defn- print-count [i factor]
   (cond
@@ -52,83 +44,76 @@ bits in a graphical hash.
     (= 0 (mod i (* 10 factor))) (do (print "o") (flush))
     (= 0 (mod i factor)) (do (print ".") (flush))))
 
-(defn- triangle [n rows]
-  (if (= 0 n)
-    nil
-    (cons (take n (first rows)) (triangle (dec n) (rest rows)))))
+(defn dump [path count render n]
+  (touch path)
+  (let [offset (measure path n)
+        hash (word-hash "SHA-1")
+        render (render n)]
+    (println "skipping" offset "existing entries")
+    (with-open [out (FileOutputStream. path Boolean/TRUE)]
+      (doseq [i (range offset (+ offset count))]
+        (let [state (hash (str i))
+              [rows state] (render state)]
+          (print-count i 10)
+          (.write out (pack rows)))))))
 
-(defn dump [path n render]
-  (let [options {:tile-number TILE-NUMBER}]
-    (touch path)
-    (let [start (measure path)
-          ; this forces diag for square and fourier
-          ; bit only tested w square to be consistent w triangle
-          make-state (fn [x] (cons 1 ((string-state "SHA-1") x)))]
-      (println "skipping" start "existing entries")
-      (with-open [out (FileOutputStream. path Boolean/TRUE)]
-        (doseq [i (range start (+ start n))]
-          (let [state (make-state (str i))
-                row-11 (render options state)]
-            (print-count i 10)
-            (.write out (to-bytes (triangle TILE-NUMBER row-11)))))))))
-
-; returns nil at eof, otherwise fills buffer
-(defn- fill-buffer [stream buffer offset target]
-  (if (= offset target)
-    buffer
-    (let [delta (.read stream buffer offset (- target offset))]
-      (if (< delta 1)
-        nil
-        (recur stream buffer (+ delta offset) target)))))
-
-(defn- map-buffer [stream n f buffer]
-  (lazy-seq
-    (if-let [buffer (fill-buffer stream buffer 0 n)]
-      (cons (f buffer) (map-buffer stream n buffer))
-      nil)))
-
-(defn map-dump [path f]
-  (let [n CHUNK-SIZE
-        buffer (byte-array (repeat n (byte 0)))]
-    (with-open [in (FileInputStream. path)]
-      (map-buffer in n f buffer))))
-
-(defn- reduce-buffer
-  ([stream n f acc buffer] (reduce-buffer stream n f acc buffer 0))
-  ([stream n f acc buffer count]
-    (print-count count 100)
-    (if-let [buffer (fill-buffer stream buffer 0 n)]
-      (recur stream n f (f acc buffer) buffer (inc count))
-      acc)))
-
-(defn reduce-dump [path f zero]
-  (let [n CHUNK-SIZE
-        buffer (byte-array (repeat n (byte 0)))]
-    (with-open [in (BufferedInputStream. (FileInputStream. path))]
-      (reduce-buffer in n f zero buffer))))
-
-; convert from signed byte to unsigned int [0 255]
-(defn to-int [x]
-  (int
-    (if (< x 0)
-      (+ 256 x)
-      x)))
-
-(defn to-ints [s]
-  (map to-int s))
-
-(defn- hist-byte [hist x]
-  (let [hist (assoc hist x (inc (get hist x 0)))]
-    ;    (println hist)
-    hist))
-
-(defn- hist-buffer [hist buffer]
-  (reduce hist-byte hist (to-ints buffer)))
-
-(defn hist-dump [path]
-  (let [hist (reduce-dump path hist-buffer {})
-        biggest (apply max (vals hist))
-        scale (/ 60 biggest)]
-    (doseq [i (range 0 256)]
-      (let [n (get hist i 0)]
-        (printf "%3d: %8d %s\n" i n (apply str (repeat (* scale n) "*")))))))
+;; returns nil at eof, otherwise fills buffer
+;(defn- fill-buffer [stream buffer offset target]
+;  (if (= offset target)
+;    buffer
+;    (let [delta (.read stream buffer offset (- target offset))]
+;      (if (< delta 1)
+;        nil
+;        (recur stream buffer (+ delta offset) target)))))
+;
+;(defn- map-buffer [stream n f buffer]
+;  (lazy-seq
+;    (if-let [buffer (fill-buffer stream buffer 0 n)]
+;      (cons (f buffer) (map-buffer stream n buffer))
+;      nil)))
+;
+;(defn map-dump [path f]
+;  (let [n CHUNK-SIZE
+;        buffer (byte-array (repeat n (byte 0)))]
+;    (with-open [in (FileInputStream. path)]
+;      (map-buffer in n f buffer))))
+;
+;(defn- reduce-buffer
+;  ([stream n f acc buffer] (reduce-buffer stream n f acc buffer 0))
+;  ([stream n f acc buffer count]
+;    (print-count count 100)
+;    (if-let [buffer (fill-buffer stream buffer 0 n)]
+;      (recur stream n f (f acc buffer) buffer (inc count))
+;      acc)))
+;
+;(defn reduce-dump [path f zero]
+;  (let [n CHUNK-SIZE
+;        buffer (byte-array (repeat n (byte 0)))]
+;    (with-open [in (BufferedInputStream. (FileInputStream. path))]
+;      (reduce-buffer in n f zero buffer))))
+;
+;; convert from signed byte to unsigned int [0 255]
+;(defn to-int [x]
+;  (int
+;    (if (< x 0)
+;      (+ 256 x)
+;      x)))
+;
+;(defn to-ints [s]
+;  (map to-int s))
+;
+;(defn- hist-byte [hist x]
+;  (let [hist (assoc hist x (inc (get hist x 0)))]
+;    ;    (println hist)
+;    hist))
+;
+;(defn- hist-buffer [hist buffer]
+;  (reduce hist-byte hist (to-ints buffer)))
+;
+;(defn hist-dump [path]
+;  (let [hist (reduce-dump path hist-buffer {})
+;        biggest (apply max (vals hist))
+;        scale (/ 60 biggest)]
+;    (doseq [i (range 0 256)]
+;      (let [n (get hist i 0)]
+;        (printf "%3d: %8d %s\n" i n (apply str (repeat (* scale n) "*")))))))

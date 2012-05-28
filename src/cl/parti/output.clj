@@ -61,12 +61,26 @@ Functions used in the output sections of the pipeline.
        (clip (+ 0.5 (* lightness h-v-l x)))]))
   (map-rows to-hsl rows-11))
 
+(defn- rotate-rows
+  "Rotate the rows.
+
+  Rendered images are diagonally symmetric so have two distinct orientations."
+  [n rows]
+  (let [m (dec n)]
+    (for [j (range n)]
+      (for [i (range n)]
+        (nth (nth rows (- m i)) j)))))
+
 (defn render-floats
   "Convert and expand the internal float-based representation, generating a
-  full mosaic of HSL values."
+  full mosaic of HSL values.
+
+  This increases the variation among images, consuming 10 bits of state."
   [n scale colour width mono]
   (fn [[rows state]]
-    (let [[h-v-l state] (rand-sign state)
+    (let [[rotate state] (rand-sign state)
+          [h-v-l state] (rand-sign state)
           [hue state] (rand-real 1 state)]
       (expand-mosaic n scale colour width
-        (floats-to-hsl mono LIGHTNESS h-v-l hue rows)))))
+        (floats-to-hsl mono LIGHTNESS h-v-l hue
+          (if (= 1 rotate) rows (rotate-rows n rows)))))))

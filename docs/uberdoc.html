@@ -3693,15 +3693,26 @@ the entire value in memory, and without exposing open streams.</p>
       [(if mono 0 (fold (+ hue x)))
        (if mono 0 1)
        (clip (+ 0.5 (* lightness h-v-l x)))]))
-  (map-rows to-hsl rows-11))</pre></td></tr><tr><td class="docs"><p>Convert and expand the internal float-based representation, generating a
+  (map-rows to-hsl rows-11))</pre></td></tr><tr><td class="docs"><p>Rotate the rows.</p>
+
+<p>  Rendered images are diagonally symmetric so have two distinct orientations.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- rotate-rows
+  [n rows]
+  (for [j (range n)]
+    (for [i (range n)]
+      (nth (nth rows i) j))))</pre></td></tr><tr><td class="docs"><p>Convert and expand the internal float-based representation, generating a
   full mosaic of HSL values.</p>
+
+<p>  This increases the variation among images, consuming 1 bits of state.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn render-floats
   [n scale colour width mono]
   (fn [[rows state]]
-    (let [[h-v-l state] (rand-sign state)
+    (let [[rotate state] (rand-sign state)
+          [h-v-l state] (rand-sign state)
           [hue state] (rand-real 1 state)]
       (expand-mosaic n scale colour width
-        (floats-to-hsl mono LIGHTNESS h-v-l hue rows)))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.png" name="cl.parti.png"><h1 class="project-name">cl.parti.png</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>A simple interface to the excellent pngj library.</p>
+        (floats-to-hsl mono LIGHTNESS h-v-l hue
+          (if (= 1 rotate) rows (rotate-rows n rows)))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.png" name="cl.parti.png"><h1 class="project-name">cl.parti.png</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>A simple interface to the excellent pngj library.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
   cl.parti.png
@@ -3773,8 +3784,8 @@ cipher in counter mode should be appropriate.  However, standard Java only
 supports block ciphers up to 128 bit keys.  To extend the key space multiple
 ciphers are run in parallel; their results are combined using xor.</p>
 
-<p><em>IMPORTANT</em> - The approach and code here need review by someone more competent
-than me.</p>
+<p><em>IMPORTANT</em> - The approach and code here need review by someone more
+knowledgeable than me.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
   cl.parti.random
@@ -3965,25 +3976,14 @@ convert these values to colours.</p>
   (:use clojure.math.numeric-tower))</pre></td></tr><tr><td class="docs"><h2>Random parameters</h2>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Range over which values can be shifted in a single transformation.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
-  DELTA 127)</pre></td></tr><tr><td class="docs"><p>Generate two values, <code>r1</code> and <code>r2</code>, selecting the first from a uniform
-  distribution in the range [0 n) and the second in the range [0 (n-r1)).
-  This means that <code>r1</code> and <code>r1+r2</code> are both in [0 n).</p>
+  DELTA 127)</pre></td></tr><tr><td class="docs"><p>Generate two values, <code>side</code> and <code>offset</code>, selecting the first from a uniform
+  distribution in the range [0 n) and the second in the range [0 (n-side)).
+  This means that <code>side</code> and <code>side+offset</code> are both in [0 n).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- rand-two-points
   [n state]
-  (let [[r1 state] (rand-byte n state)
-        [r2 state] (rand-byte (- n r1) state)]
-    [r1 r2 state]))</pre></td></tr><tr><td class="docs"><p>These values generated above are used to select a square along the diagonal
-  of the mosaic.  The length of the side of the square is taked from <code>r1</code>
-  above; its offset is taken from <code>r2</code>.</p>
-
-<p>  <code>diag</code> is 1 or -1 and defines the diagonal for the mosaic.
-  <code>n</code> is the size of the mosaic (the number of tiles along one side).</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- corners
-  [n diag side xlo]
-  (let [m (dec n)
-        xhi (+ xlo side)
-        [ylo yhi] (if (&gt; 0 diag) [xlo xhi] [(- m xhi) (- m xlo)])]
-    [xlo xhi ylo yhi]))</pre></td></tr><tr><td class="docs"><p>Generate a uniformly distributed pseudo-random integer in the range
+  (let [[side state] (rand-byte n state)
+        [offset state] (rand-byte (- n side) state)]
+    [side offset state]))</pre></td></tr><tr><td class="docs"><p>Generate a uniformly distributed pseudo-random integer in the range
   [-DELTA DELTA].</p>
 
 <p>  This value is used to give the strength of the shift applied to the
@@ -4000,9 +4000,9 @@ convert these values to colours.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- parameters
   [n state]
   (lazy-seq
-    (let [[r1 r2 state] (rand-two-points n state)
+    (let [[side offset state] (rand-two-points n state)
           [delta state] (rand-range state)]
-      (cons [delta [r1 r2] state] (parameters n state)))))</pre></td></tr><tr><td class="docs"><h2>The transformation</h2>
+      (cons [delta side offset state] (parameters n state)))))</pre></td></tr><tr><td class="docs"><h2>The transformation</h2>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Scale for converting for normalisation.  Smaller values emphasise
   middle ranges in the data.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
@@ -4012,15 +4012,14 @@ convert these values to colours.</p>
   [f rows [x y]]
   (let [row (rows x)
         val (f (row y))]
-    (assoc rows x (assoc row y val))))</pre></td></tr><tr><td class="docs"><p>Add <code>delta</code> to the square defined by <code>r1</code> and <code>r2</code>.</p>
+    (assoc rows x (assoc row y val))))</pre></td></tr><tr><td class="docs"><p>Add <code>delta</code> to the square defined by <code>side</code> and <code>offset</code>.</p>
 
 <p>  Again, the latest <code>state</code> is made available for use by the caller.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- transform-square
-  [[n diag rows] [delta [r1 r2] state]]
-  (let [[xlo xhi ylo yhi] (corners n diag r1 r2)
-        xys (for [x (range xlo (inc xhi)) y (range ylo (inc yhi))] [x y])
+  [[n rows] [delta side offset state]]
+  (let [xys (for [x (range side) y (range side)] [(+ x offset) (+ y offset)])
         delta #(+ delta %)]
-    [n diag (reduce #(apply-2 delta %1 %2) rows xys) state]))</pre></td></tr><tr><td class="docs"><p>Pull all the above together - generate a sequence of random parameters
+    [n (reduce #(apply-2 delta %1 %2) rows xys) state]))</pre></td></tr><tr><td class="docs"><p>Pull all the above together - generate a sequence of random parameters
   and then iterate over them, repeatedly transforming the mosaic.</p>
 
 <p>  Returns the final mosaic (2D nested sequences of un-normalized integers)
@@ -4028,12 +4027,11 @@ convert these values to colours.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- repeated-transform
   [n count state]
   (let [rows (vec (repeat n (vec (repeat n 0))))
-        [diag state] (rand-sign state)
-        [n d r s]
-        (reduce transform-square [n diag rows]
+        [n rows state]
+        (reduce transform-square [n rows]
           (take count
             (parameters n state)))]
-    [r s]))</pre></td></tr><tr><td class="docs"><p>The render function.  The output from <code>repeated-transform</code> is normalized
+    [rows state]))</pre></td></tr><tr><td class="docs"><p>The render function.  The output from <code>repeated-transform</code> is normalized
   to the range (-1 1).</p>
 
 <p>  Some parameters are inferred from the mosaic size, <code>n</code>, to give a
@@ -4084,8 +4082,9 @@ convert these values to colours.</p>
           b)))</pre></td></tr><tr><td class="docs"><p>Return the sign of <code>x</code> (a value in [-1 1]).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn sgn
   [x]
-  (cond (&lt; x 0) -1 (&gt; x 0) 1 :else 0))</pre></td></tr><tr><td class="docs"><p>A utility for parsing hexadecimal values.</p>
-</td><td class="codes"><pre class="brush: clojure">(def  HEX (Hex.))</pre></td></tr><tr><td class="docs"><p>Convert a string of hex digits to an array of bytes.</p>
+  (cond (&lt; x 0) -1 (&gt; x 0) 1 :else 0))</pre></td></tr><tr><td class="docs"><p>A utility instance for managing hexadecimal values.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private 
+  HEX (Hex.))</pre></td></tr><tr><td class="docs"><p>Convert a string of hex digits to an array of bytes.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn parse-hex
   [hex]
   (.decode HEX hex))</pre></td></tr><tr><td class="docs"><p>Convert an array of bytes to a string of hex digits.</p>
