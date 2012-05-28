@@ -7,7 +7,7 @@ the mosaic(s).
 "
       :author "andrew@acooke.org"}
   cl.parti.cli
-  (:use (cl.parti hsl utils square fourier input output))
+  (:use (cl.parti hsl utils diagonal fourier input output))
   (:import java.awt.Color)
   (:use [clojure.string :only [replace] :rename {replace str-replace}])
   (:use clojure.tools.cli)
@@ -118,10 +118,10 @@ the mosaic(s).
 (defn-defaults [set-style-2 :style ]
   "hash" {:tile-number 20 :tile-size 4
           :border-colour "black" :border-width 1
-          :hash-algorithm "SHA-512" :render "square"}
+          :hash-algorithm "SHA-512" :render "rectangle"}
   "user" {:tile-number 5 :tile-size 20
           :border-colour "white" :border-width 3
-          :hash-algorithm "MD5" :render "square"})
+          :hash-algorithm "MD5" :render "rectangle"})
 
 ;; #### Combine multiple options to find the background colour
 
@@ -206,6 +206,7 @@ the mosaic(s).
         mono (:monochrome options)
         render (render-floats n scale colour width mono)]
     (key-case [:render options]
+      "rectangle" [(rectangle n) render]
       "square" [(square n) render]
       "fourier" [(fourier n) render])))
 
@@ -244,7 +245,7 @@ the mosaic(s).
     ["--border-red" "Border red component (0-255)"]
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
-    ["-r" "--render" "How image rendered (square, fourier)"]
+    ["-r" "--render" "How image rendered (rectangle, square, fourier)"]
     ["-m" "--monochrome" "Greyscale images" :flag true]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]

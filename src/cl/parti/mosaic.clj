@@ -83,3 +83,4 @@ Utilities used by the render and display functions.
   [norm rows]
   (let [rows (de-mean rows)]
     (map-rows (make-sigmoid norm) rows)))
+

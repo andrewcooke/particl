@@ -55,9 +55,9 @@ that connects together functions defined in other modules.  The pieces of
 the pipeline are assembled from command line arguments by the code in
 `cl.parti.cli`.
 
-The algorithm for generating the distinctive patterns is in `cl.parti.square`,
-while most of the cryptographic properties depend on the routines in
-`cl.parti.random`.
+The algorithms for generating the distinctive patterns are in
+`cl.parti.diagonal`, while most of the cryptographic properties depend on
+the routines in `cl.parti.random`.
 
 "
       :author "andrew@acooke.org"}

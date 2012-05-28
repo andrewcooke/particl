@@ -206,3 +206,14 @@ want to access the key stream."}
   (let [[r state] (rand-byte 2 state)]
     [(if (= 1 r) r -1) state]))
 
+(defn rand-int16
+  "Similar to `rand-byte`, but generating a 16 bit value."
+  [n state]
+  (assert (> n 0))
+  (assert (< n 65537))
+  (let [[r1 state] (rand-unsigned-byte state)
+        [r2 state] (rand-unsigned-byte state)
+        r (+ r1 (* 256 r2))
+        m (bitmask (dec n))
+        r (bit-and r m)]
+    (if (< r n) [r state] (recur n state))))
