@@ -63,3 +63,7 @@ Various utilitiy functions.
   "Convert an array of bytes to a string of hex digits."
   [hex]
   (Hex/encodeHexString hex))
+
+(defn flatten-1
+  [list]
+  (apply concat list))

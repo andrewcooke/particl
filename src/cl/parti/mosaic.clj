@@ -84,3 +84,18 @@ Utilities used by the render and display functions.
   (let [rows (de-mean rows)]
     (map-rows (make-sigmoid norm) rows)))
 
+(defn cumulate
+  ([values] (cumulate (distinct (sort values)) (frequencies values) 0 {}))
+  ([ordered freq sum histogram]
+    (let [value (first ordered)
+          ordered (rest ordered)
+          n (freq value)
+          histogram (assoc histogram value sum)]
+      (if (seq ordered)
+        (recur ordered freq (+ n sum) histogram)
+        (apply merge {} (map (fn [[k v]] [k (/ v sum)]) histogram))))))
+
+(defn equalize
+  [rows]
+  (let [hist (cumulate (flatten rows))]
+    (map-rows (fn [x] (- (* 2 (hist x)) 1)) rows)))

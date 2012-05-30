@@ -168,7 +168,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
     (let [[rows state]
           (repeated-transform rand-square transform-square n (expt n 2) state)
           norm (* NORM DELTA (expt n 0.8))]
-      [(normalize norm rows) state])))
+      [norm rows state])))
 
 (defn- reflect
   "Reflect the lower triangle to the upper.  This allows the 'reactangle'
@@ -186,5 +186,5 @@ render function (`cl.parti.output`) will later convert these values to colours.
     (let [[rows state]
           (repeated-transform rand-rectangle transform-rectangle n (expt n 2) state)
           norm (* NORM DELTA (expt n 0.8))]
-      [(normalize norm (reflect n rows)) state])))
+      [norm (reflect n rows) state])))
 

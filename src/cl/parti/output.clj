@@ -42,7 +42,7 @@ Functions used in the output sections of the pipeline.
 
 (def
   ^{:doc "The strength of changes in luminosity, relative to changes in hue."}
-  LIGHTNESS 0.75)
+  LIGHTNESS 0.5)
 
 (defn- floats-to-hsl
   "Convert a mosaic (2D nested sequences) of normalized (-1 1) floats to
@@ -76,11 +76,19 @@ Functions used in the output sections of the pipeline.
   full mosaic of HSL values.
 
   This increases the variation among images, consuming 10 bits of state."
-  [n scale colour width mono]
+  [n scale colour width mono raw]
   (fn [[rows state]]
-    (let [[rotate state] (rand-sign state)
-          [h-v-l state] (rand-sign state)
-          [hue state] (rand-real 1 state)]
+    (let [[rotate state] (if raw [1 state] (rand-sign state))
+          [h-v-l state] (if raw [1 state] (rand-sign state))
+          [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))]
       (expand-mosaic n scale colour width
         (floats-to-hsl mono LIGHTNESS h-v-l hue
           (if (= 1 rotate) rows (rotate-rows n rows)))))))
+
+(defn normalize-sigmoid
+  [[norm rows state]]
+  [(normalize norm rows) state])
+
+(defn normalize-histogram
+  [[norm rows state]]
+  [(equalize rows) state])

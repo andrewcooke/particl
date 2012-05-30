@@ -23,14 +23,14 @@ Assemble the pipeline components to generate mosaics.
 The hash is applied within the reader so that the reader can close streams
 after processing.  This allows large inputs to be hashed without holding
 the entire value in memory, and without exposing open streams."
-  [reader hash builder render display]
+  [reader hash builder normalize render display]
   (fn [args]
     (doseq [state (reader hash args)]
-      (-> state builder render display))))
+      (-> state builder normalize render display))))
 
 (defn -main
   "Combine the pipeline above with the command line option handling in
   `cl.parti.cli` to give a command-line application."
   [& args]
-  (let [[[[reader hash] [builder render] display] args] (handle-args args)]
-    ((particl reader hash builder render display) args)))
+  (let [[[[reader hash] [builder normalize render] display] args] (handle-args args)]
+    ((particl reader hash builder normalize render display) args)))

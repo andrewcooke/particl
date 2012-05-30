@@ -81,7 +81,7 @@ the mosaic(s).
 (defn convert-int
   "Convert all numerical options to integers."
   [options]
-  (let [names #{:tile-number :tile-size :border-width }]
+  (let [names #{:tile-number :tile-size :border-width :raw}]
     (apply merge
       (for [[k v] options]
         {k (if (and v (names k)) (parse-int v k) v)}))))
@@ -118,10 +118,12 @@ the mosaic(s).
 (defn-defaults [set-style-2 :style ]
   "hash" {:tile-number 20 :tile-size 4
           :border-colour "black" :border-width 1
-          :hash-algorithm "SHA-512" :render "rectangle"}
+          :hash-algorithm "SHA-512" 
+          :builder "rectangle" :normalize "histogram"}
   "user" {:tile-number 5 :tile-size 20
           :border-colour "white" :border-width 3
-          :hash-algorithm "MD5" :render "rectangle"})
+          :hash-algorithm "MD5" 
+          :builder "rectangle" :normalize "sigmoid"})
 
 ;; #### Combine multiple options to find the background colour
 
@@ -195,6 +197,12 @@ the mosaic(s).
     "word" [(if args literal-reader line-reader) (word-hash hash)]
     "file" [(if args file-reader stdin-reader) (stream-hash hash)]))
 
+(defn select-normalize
+  [options]
+   (key-case [:normalize options]
+     "sigmoid" normalize-sigmoid
+     "histogram" normalize-histogram))
+
 (defn select-builder
   "The 'builder' function constructs an abstract, internal representation of
   the image, given the hash; the 'render' function expands that to HSL pixels.
@@ -204,11 +212,13 @@ the mosaic(s).
         colour (:border-colour options)
         width (:border-width options)
         mono (:monochrome options)
-        render (render-floats n scale colour width mono)]
-    (key-case [:render options]
-      "rectangle" [(rectangle n) render]
-      "square" [(square n) render]
-      "fourier" [(fourier n) render])))
+        raw (:raw options)
+        render (render-floats n scale colour width mono raw)
+        norm (select-normalize options)]
+    (key-case [:builder options]
+      "rectangle" [(rectangle n) norm render]
+      "square" [(square n) norm render]
+      "fourier" [(fourier n) norm render])))
 
 (defn select-display
   "The 'display' function presents the HSL pixels to the user as a concrete
@@ -226,6 +236,7 @@ the mosaic(s).
     [(select-input options hash args)
      (select-builder options n)
      (select-display options)]))
+
 
 ;; ## Command line interface
 
@@ -245,8 +256,10 @@ the mosaic(s).
     ["--border-red" "Border red component (0-255)"]
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
-    ["-r" "--render" "How image rendered (rectangle, square, fourier)"]
-    ["-m" "--monochrome" "Greyscale images" :flag true]
+    ["--builder" "How image is built (rectangle, square, fourier)"]
+    ["--normalize" "Image normalisation (histogram, sigmoid)"]
+    ["--monochrome" "Greyscale images" :flag true]
+    ["--raw" "Basic format, fixed hue (0-255)"]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true])]
