@@ -81,7 +81,7 @@ the mosaic(s).
 (defn convert-int
   "Convert all numerical options to integers."
   [options]
-  (let [names #{:tile-number :tile-size :border-width :raw}]
+  (let [names #{:tile-number :tile-size :border-width :raw }]
     (apply merge
       (for [[k v] options]
         {k (if (and v (names k)) (parse-int v k) v)}))))
@@ -104,6 +104,13 @@ the mosaic(s).
       (error "--hash-algorithm conflicts with --input hex")))
   options)
 
+(defn check-holes
+  "Validate that the rate for holes is within a reasonable range."
+  [options]
+  (when-let [n (:holes options)]
+    (assert-range n 1 100 "--holes"))
+  options)
+
 ;; Provide a default style, based on the input type.  If we are hashing
 ;; individual words then we select the 'user' style - a simple, attractive
 ;; design, suitable for identifying users.  Otherwise (ie when hashing files)
@@ -112,18 +119,33 @@ the mosaic(s).
   "word" {:style "user"}
   :else {:style "hash"})
 
+(def ^:private
+  ^{:doc "A pre-defined style for user icons.  Simple and colourful."}
+  USER {:tile-number 5 :tile-size 20 :border-colour "white" :border-width 3
+        :hash-algorithm "MD5" :builder "rectangle" :normalize "sigmoid"})
+
+(def ^:private
+  ^{:doc "The base style for cryptographic data hashes."}
+  BASE_HASH {:tile-number 20 :border-colour "black" :border-width 1
+             :builder "rectangle" :normalize "histogram"})
+
+(def ^:private
+  ^{:doc "A pre-defined style for moderate security."}
+  HASH_100 (?merge {:tile-size 4 :hash-algorithm "SHA-256"} BASE_HASH))
+
+(def ^:private
+  ^{:doc "A pre-defined style for higher security (at the cost of ease of use)."}
+  HASH_200 (?merge {:tile-size 6 :hash-algorithm "SHA-512" :holes 4} BASE_HASH))
+
 ;; Expand the given style to affect other, appropriate options.  If a user
 ;; has specified an option on the command line then that will take precedence
 ;; over the defaults given here.
-(defn-defaults [set-style-2 :style ]
-  "hash" {:tile-number 20 :tile-size 4
-          :border-colour "black" :border-width 1
-          :hash-algorithm "SHA-512" 
-          :builder "rectangle" :normalize "histogram"}
-  "user" {:tile-number 5 :tile-size 20
-          :border-colour "white" :border-width 3
-          :hash-algorithm "MD5" 
-          :builder "rectangle" :normalize "sigmoid"})
+(defn-defaults
+  [set-style-2 :style ]
+  "hash" HASH_100
+  "hash-100" HASH_100
+  "hash-200" HASH_200
+  "user" USER)
 
 ;; #### Combine multiple options to find the background colour
 
@@ -176,7 +198,7 @@ the mosaic(s).
   and extend the options."
   [options]
   (-> options
-    convert-int check-tile-number check-hash-algorithm
+    convert-int check-tile-number check-hash-algorithm check-holes
     set-style-1 set-style-2
     lookup-colour colour-components
     show-options))
@@ -187,8 +209,8 @@ the mosaic(s).
 ;; options constructed above, so that we can construct the mosaic pipeline.
 
 (defn select-input
-  "The 'reader' function is a source of input data, using either command line
-  arguments or stdin; the 'hash' function hashes this data.  These are
+  "The reader function is a source of input data, using either command line
+  arguments or stdin; the hash function hashes this data.  These are
   selected together, based on the 'input-type' option and the presence of
   command line arguments."
   [options hash args]
@@ -199,26 +221,33 @@ the mosaic(s).
 
 (defn select-normalize
   [options]
-   (key-case [:normalize options]
-     "sigmoid" normalize-sigmoid
-     "histogram" normalize-histogram))
+  (key-case [:normalize options]
+    "sigmoid" normalize-sigmoid
+    "histogram" normalize-histogram))
 
 (defn select-builder
-  "The 'builder' function constructs an abstract, internal representation of
-  the image, given the hash; the 'render' function expands that to HSL pixels.
-  Their selection is based on multiple command-line options."
+  "The builder function constructs an abstract, internal representation of
+  the image, given the hash.  The range of values is then reduced by the
+  normalize function."
+  [options n]
+  (let [normalize (select-normalize options)]
+    (key-case [:builder options]
+      "rectangle" [(rectangle n) normalize]
+      "square" [(square n) normalize]
+      "fourier" [(fourier n) normalize])))
+
+(defn select-render
+  "The render function expands the output from the builder to HSL pixels.
+  Pixels can be modified by the editor function."
   [options n]
   (let [scale (:tile-size options)
         colour (:border-colour options)
         width (:border-width options)
         mono (:monochrome options)
         raw (:raw options)
-        render (comp (corners n scale width) (render-floats n scale colour width mono raw))
-        norm (select-normalize options)]
-    (key-case [:builder options]
-      "rectangle" [(rectangle n) norm render]
-      "square" [(square n) norm render]
-      "fourier" [(fourier n) norm render])))
+        rate (:holes options)]
+    [(render-floats n scale colour width mono raw)
+     (if rate (holes n scale width rate) no-editor)]))
 
 (defn select-display
   "The 'display' function presents the HSL pixels to the user as a concrete
@@ -235,6 +264,7 @@ the mosaic(s).
         hash (:hash-algorithm options)]
     [(select-input options hash args)
      (select-builder options n)
+     (select-render options n)
      (select-display options)]))
 
 
@@ -260,6 +290,7 @@ the mosaic(s).
     ["--normalize" "Image normalisation (histogram, sigmoid)"]
     ["--monochrome" "Greyscale images" :flag true]
     ["--raw" "Basic format, fixed hue (0-255)"]
+    ["--holes" "Add holes of given density (1-100)"]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true])]

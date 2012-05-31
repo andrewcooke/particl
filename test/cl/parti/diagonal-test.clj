@@ -7,6 +7,6 @@
   (-main "--builder" "rectangle" "-v" "-i" "word" "-o" "/tmp/rectangle-test.png" "abc"))
 
 (deftest test-square
-  (-main "--builder" "square" "-v" "-i" "word" "-o" "/tmp/square-test.png" "abc"))
+  (-main "--builder" "square" "-p" "6" "-v" "-i" "word" "-o" "/tmp/square-test.png" "abc"))
 
 (run-tests)

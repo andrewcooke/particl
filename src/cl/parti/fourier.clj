@@ -1,6 +1,6 @@
 (ns ^{:doc "
 
-An alternative renderer to `square`.  Currently broken.
+An alternative builder to `square` and `rectangle`.  Currently broken.
 
 "
       :author "andrew@acooke.org"}

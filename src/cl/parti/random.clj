@@ -206,6 +206,12 @@ want to access the key stream."}
   (let [[r state] (rand-byte 2 state)]
     [(if (= 1 r) r -1) state]))
 
+(defn rand-bool
+  "Generate a pseudo-random 'boolean' value (`nil` for false)."
+  [state]
+  (let [[r state] (rand-byte 2 state)]
+    [(if (= 1 r) 1 nil) state]))
+
 (defn rand-int16
   "Similar to `rand-byte`, but generating a 16 bit value."
   [n state]

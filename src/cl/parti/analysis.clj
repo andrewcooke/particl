@@ -1,10 +1,15 @@
 (ns ^{:doc "
 
-Experimental code, in development, to try assess the equivalent number of
-bits in a graphical hash.
+Functions to help explore the statistical properties of the generated mosaics.
+
+Analysis here focuses on the internal representation, after normalisation.
+This contains the essential 'pattern' in the data, without additional
+(and quantifiable) variations due to orientation, choice of hue, etc,
+which reduces the search space needed to identify collisions.
 
 "
       :author "andrew@acooke.org"}
+  cl.parti.analysis
   cl.parti.dump
   (:use (cl.parti input utils))
   (:import java.io.File)
@@ -19,11 +24,11 @@ bits in a graphical hash.
 
 ;; ## Generate 'database' of patterns
 ;;
-;; Here we generate a reasonably compact version of the output from render
-;; functions.  The generated files are used later to find collisions.
+;; A database provides faster access than generating on the fly (it takes
+;; about 10 hours to generate a million 20x20 mosaics on my laptop).
 
 (defn- triangle
-  "Extract the unique data from the lower triangle of the pattern."
+  "Extract the unique data from the lower triangle of the mosaic."
   ([rows] (triangle rows 1))
   ([rows n]
     (let [rows (seq rows)]
@@ -31,19 +36,13 @@ bits in a graphical hash.
         (cons (take n (first rows)) (triangle (rest rows) (inc n)))
         nil))))
 
-;(defn- to-byte
-;  "Convert the render output, which are floats in (-1 1), to bytes.
-;
-;  We need to be careful about rounding to integers about zero.  Shifting to
-;  to (0 2) then scaling to (0 256) gives a result that rounds down to [0 255],
-;  keeping the full range of data with uniform intervals.
-;
-;  Conversion to (native, signed) bytes uses bit-equivalent values."
-;  [x]
-;  (sign-byte (int (* 128 (+ 1 x)))))
+(defn- triangle-size
+  "The number of bytes in the lower triangle "
+  [n]
+  (/ (* n (inc n)) 2))
 
 (defn- to-byte
-  "Convert the render output, which are floats in [-1 1], to bytes.
+  "Convert the normalized render output, which are floats in [-1 1], to bytes.
 
   We need to be careful about rounding to integers about zero.  Scaling to
   [0 255] would give more values at [0] since [0 1) is rounded there.  So
@@ -65,30 +64,31 @@ bits in a graphical hash.
   (let [file (File. path)]
     (.createNewFile file)))
 
-(defn- chunk-size
-  [n]
-  (/ (* n (inc n)) 2))
-
 (defn- measure
   "Measure the size size of a file, in terms of the number of mosaics."
   [path n]
-  (/ (.length (File. path)) (chunk-size n)))
+  (/ (.length (File. path)) (triangle-size n)))
 
-(defn- print-count
+(defn print-tick
   "Print some output to stdout as a task runs."
-  [i factor]
-  (cond
-    (= 0 (mod i (* 1000 factor))) (println i)
-    (= 0 (mod i (* 100 factor))) (do (print "O") (flush))
-    (= 0 (mod i (* 10 factor))) (do (print "o") (flush))
-    (= 0 (mod i factor)) (do (print ".") (flush))))
+  [factor]
+  (fn [i]
+    (cond
+      (= 0 (mod i (* 1000 factor))) (println i)
+      (= 0 (mod i (* 100 factor))) (do (print "O") (flush))
+      (= 0 (mod i (* 10 factor))) (do (print "o") (flush))
+      (= 0 (mod i factor)) (do (print ".") (flush)))))
+
+(defn no-tick
+  "Generate a dummy tick function, for use when no output is required."
+  (fn [i]))
 
 (defn dump
   "Append `count` patterns to the database file.
 
   The patterns are based on the SHA-1 hash of the UTF8 encoded string
-  representation of the pattern number, starting at 0."
-  [path count normalize render n prefix]
+  representation of the pattern number, plus the prefix, starting at 0."
+  [tick path count normalize render n prefix]
   (touch path)
   (let [offset (measure path n)
         hash (word-hash "SHA-1")
@@ -98,7 +98,7 @@ bits in a graphical hash.
       (doseq [i (range offset (+ offset count))]
         (let [state (hash (str prefix i))
               [rows state] (normalize (render state))]
-          (print-count i 10)
+          (tick i)
           (.write out (extract rows)))))))
 
 ;; ## Read and process database contents
@@ -127,7 +127,7 @@ bits in a graphical hash.
 (defn- reduce-dump
   "Reduce the database using the function `f`."
   [f zero path n]
-  (let [buffer (byte-array (repeat (chunk-size n) (byte 0)))]
+  (let [buffer (byte-array (repeat (triangle-size n) (byte 0)))]
     (with-open [in (BufferedInputStream. (FileInputStream. path))]
       (reduce-buffer f zero in buffer))))
 
@@ -145,7 +145,7 @@ bits in a graphical hash.
 (defn- map-dump
   "Map over the database using the function `f`."
   [f path n]
-  (let [buffer (byte-array (repeat (chunk-size n) (byte 0)))]
+  (let [buffer (byte-array (repeat (triangle-size n) (byte 0)))]
     (with-open [in (BufferedInputStream. (FileInputStream. path))]
       (map-buffer f in buffer))))
 
@@ -171,7 +171,7 @@ bits in a graphical hash.
 (defn hist-dump
   "Generate a histogram of the values (as unsigned bytes) in the database."
   [path n]
-  (let [cs (chunk-size n)
+  (let [cs (triangle-size n)
         hist (reduce-dump hist-buffer {} path cs)
         biggest (apply max (vals hist))
         scale (/ 60 biggest)]
@@ -182,23 +182,37 @@ bits in a graphical hash.
         (printf "%3d: %8d %s\n" i n (apply str (repeat (* scale n) "*")))))))
 
 ;; ## Identify 'close' patterns
+;;
+;; Locality-sentitive hashing identifies 'neighbours; pairs of neighbours
+;; are recorded; the process repeats until a pair is identified by a
+;; sufficient number of hashes.
 
-(def ^:private EXPECTED_N 1e-4)
+;; #### Sampling the pattern to generate a locality-sensitive hash.
+
+(def ^:private
+  ^{:doc "Scaling factor for the calculation below."}
+    EXPECTED_N 1e-4)
 
 (defn- estimate-samples
-  "p^n-samples * size = N
-   p^n-samples = N/size
-   n-samples * log(p) = log(N) - log(size)
-   n-samples = (log(N) - log(size))/log(p)
-   p = 1 / max
-   n-samples = log(size/N)/log(max)
-  "
+  "Set the number of samples so that the expected number of pairs in the
+   database, for perfectly random mosaics, is N.  The low value of N needed
+   (above) reflects the regularity of the patterns, I think (even so, it
+   is surprising - perhaps there is an error here?)."
+; p^n-samples * size = N
+; p^n-samples = N/size
+; n-samples * log(p) = log(N) - log(size)
+; n-samples = (log(N) - log(size))/log(p)
+; p = 1 / max
+; n-samples = log(size/N)/log(max)
   [n bits size]
   (let [n-samples (int (/ (Math/log (/ size EXPECTED_N)) (Math/log (bit-shift-left 1 bits))))]
     (println n-samples "samples")
     n-samples))
 
 (defn- select-samples
+  "Generate indices into the pattern for the samples.
+
+  A `java.util.Random` is used to provide a repeatable sequence."
   ([n random from] (select-samples n random from []))
   ([n random from samples]
     (if (zero? n)
@@ -209,6 +223,7 @@ bits in a graphical hash.
           (conj samples sample))))))
 
 (defn- make-mask
+  "Given the number of bits to keep, discard the least significant bits."
   ([ones] (make-mask (dec ones) 1 7))
   ([ones mask all]
     (if (zero? all)
@@ -217,6 +232,7 @@ bits in a graphical hash.
         (recur (dec ones) (if (> ones 0) (inc mask) mask) (dec all))))))
 
 (defn- select-hash
+  "Sample the pattern and mask the values."
   ([samples mask buffer] (select-hash samples mask buffer []))
   ([samples mask buffer hash]
     (let [samples (seq samples)]
@@ -226,6 +242,11 @@ bits in a graphical hash.
         hash))))
 
 (defn- make-hash
+  "Construct a function that will be 'reduced' over the database, accumulating
+  the hashes for a single pass.
+
+  The output here is a map from hash to all image indices with that hash
+  (all 'neighbours')"
   [n bits path random]
   (let [mask (make-mask bits)
         size (measure path n)
@@ -238,44 +259,26 @@ bits in a graphical hash.
             i (inc i)]
         [i matches]))))
 
-;(defn- pairs
-;  ([nbrs]
-;    (let [nbrs (seq nbrs)]
-;      (if nbrs (pairs (rest nbrs) (first nbrs) (rest nbrs)))))
-;  ([nbrs a bs]
-;    (lazy-seq
-;      (let [bs (seq bs)]
-;        (if bs
-;          (let [b (first bs)]
-;            (cons (if (> a b) [[b a] 1] [[a b] 1]) (pairs nbrs a (rest bs))))
-;          (pairs nbrs))))))
-
-;(defn- pairs
-;  [nbrs]
-;  (let [nbrs (int-array (sort nbrs))]
-;    (flatten-1
-;      (for [i (range 1 (count nbrs))]
-;        (for [j (range i)] [[(nth nbrs i) (nth nbrs j)] 1])))))
-;
-;(defn- noisy-pairs
-;  [nbrs]
-;  (let [n (count nbrs)]
-;    (if (> n 1)
-;      (do
-;        (when (> n 100) (println n))
-;        ;        (combinations nbrs 2))
-;        (pairs nbrs))
-;      [])))
+;; #### Counting each image pair.
 
 (defn- pack
+  "Reduce a pair of image indices to a single long value.  This saves space
+  and allows the use of a primitive types collection to map from pairs to
+  the number of times they are associated."
   [size n1 n2]
   (+ (* size n1) n2))
 
 (defn- unpack
+  "Extract the two image indices from the packed value."
   [size pair]
   [(int (/ pair size)) (mod pair size)])
 
 (defn- collect
+  "Iterate over the neighbour information, expanding the neighbours into
+  pairs, and incrementing the count for each pair.
+
+  The map from pairs to count is a mutable, primitive type map for
+  (memory and cpu) efficiency."
   [size matches [_ hashes]]
   (println (count hashes) "sets of neighbours")
   (doseq [nbrs (map (comp int-array sort) (vals hashes))]
@@ -291,15 +294,22 @@ bits in a graphical hash.
                 (.put matches pair (byte 0)))))))))
   matches)
 
+;; #### Tying everything together.
+
 (defn rev-compare
+  "Reverse `compare` to sort in descending order."
   [a b]
   (* -1 (compare a b)))
 
 (defn over
+  "Generate a predicate used to select values over some limit."
   [lo]
   (fn [entry] (>= (.getValue entry) lo)))
 
 (defn stop-after
+  "Generate a predicate that assesses the pair-count information, stops
+  the search when a pair with `hi` or more counts is found, and returns
+  all pairs with `lo` or more counts."
   [size lo hi]
   (fn [matches]
     (if (.isEmpty matches)
@@ -317,6 +327,17 @@ bits in a graphical hash.
             (map to-pair (filter over (.keys matches)))))))))
 
 (defn group-dump
+  "The approach here uses a sample of 'pixel' values, with least significant
+   bits discarded, as a locality sensitive hash.  By repeating the hashing
+   multiple times, and counting how often the hash identifies particular
+   pairs of images, we can find the closest pairs.
+
+   Unfortunately the choice of mask, number of samples, and cut-off point
+   are hard to automate completely - parameters need 'tweaking' by hand
+   when used.
+
+   For poor choices of parameters, memory use is prohibitive (even in normal
+   use the implementation takes care to reduce memory and cpu use)."
   ([path n bits [lo hi] seed]
     (let [size (measure path n)
           stop (stop-after size lo hi)]

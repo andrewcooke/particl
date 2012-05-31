@@ -56,29 +56,6 @@ render function (`cl.parti.output`) will later convert these values to colours.
   ^{:doc "Range over which values can be shifted in a single transformation."}
   DELTA 127)
 
-(defn- rand-square
-  "Generate two values, `side` and `offset`, selecting the first from a uniform
-  distribution in the range [0 n) and the second in the range [0 (n-side)).
-  This means that `side` and `side+offset` are both in [0 n).
-
-  The value of `side` is then incremented by 1 to give a non-zero square,
-  which `offset` will position on the diagonal."
-  [n state]
-  (let [[side state] (rand-byte n state)
-        [offset state] (rand-byte (- n side) state)]
-    [[(inc side) offset] state]))
-
-(defn- rand-rectangle
-  "Generate four values - the sides and offset of a rectangle - so that
-  the rectangle lies at least partly in the lower triangle (including the
-  diagonal).
-
-  Details / ranges are as for `rand-square`."
-  [n state]
-    (let [[[dx x] state] (rand-square n state)
-          [[dy y] state] (rand-square n state)]
-      (if (> y x) (recur n state) [[dx dy x y] state])))
-
 (defn- rand-range
   "Generate a uniformly distributed pseudo-random integer in the range
   [-DELTA DELTA].
@@ -102,6 +79,33 @@ render function (`cl.parti.output`) will later convert these values to colours.
           [delta state] (rand-range state)]
       (cons [delta location state] (parameters generator n state)))))
 
+;; #### Parameters for the 'square' pattern.
+
+(defn- rand-square
+  "Generate two values, `side` and `offset`, selecting the first from a uniform
+  distribution in the range [0 n) and the second in the range [0 (n-side)).
+  This means that `side` and `side+offset` are both in [0 n).
+
+  The value of `side` is then incremented by 1 to give a non-zero square,
+  which `offset` will position on the diagonal."
+  [n state]
+  (let [[side state] (rand-byte n state)
+        [offset state] (rand-byte (- n side) state)]
+    [[(inc side) offset] state]))
+
+;; #### Parameters for the 'rectangular' pattern.
+
+(defn- rand-rectangle
+  "Generate four values - the sides and offset of a rectangle - so that
+  the rectangle lies at least partly in the lower triangle (including the
+  diagonal).
+
+  Details / ranges are as for `rand-square`."
+  [n state]
+    (let [[[dx x] state] (rand-square n state)
+          [[dy y] state] (rand-square n state)]
+      (if (> y x) (recur n state) [[dx dy x y] state])))
+
 ;; ## The transformations
 
 (def ^:private
@@ -121,6 +125,22 @@ render function (`cl.parti.output`) will later convert these values to colours.
         val (f (row y))]
     (assoc rows x (assoc row y val))))
 
+(defn- repeated-transform
+  "Pull all the above together - generate a sequence of random parameters
+  and then iterate over them, repeatedly transforming the mosaic.
+
+  Returns the final mosaic (2D nested sequences of un-normalized integers)
+  and the latest state."
+  [generator transformer n count state]
+  (let [rows (vec (repeat n (vec (repeat n 0))))
+        [n rows state]
+        (reduce transformer [n rows]
+          (take count
+            (parameters generator n state)))]
+    [rows state]))
+
+;; #### The 'square' builder.
+
 (defn- transform-square
   "Add `delta` to the square defined by `side` and `offset`.
 
@@ -138,22 +158,8 @@ render function (`cl.parti.output`) will later convert these values to colours.
         delta #(+ delta %)]
     [n (reduce #(apply-2 delta %1 %2) rows xys) state]))
 
-(defn- repeated-transform
-  "Pull all the above together - generate a sequence of random parameters
-  and then iterate over them, repeatedly transforming the mosaic.
-
-  Returns the final mosaic (2D nested sequences of un-normalized integers)
-  and the latest state."
-  [generator transformer n count state]
-  (let [rows (vec (repeat n (vec (repeat n 0))))
-        [n rows state]
-        (reduce transformer [n rows]
-          (take count
-            (parameters generator n state)))]
-    [rows state]))
-
 (defn square
-  "The square render function.  The output from `repeated-transform` is
+  "The square builder function.  The output from `repeated-transform` is
   normalized to the range (-1 1).
 
   Some parameters are inferred from the mosaic size, `n`, to give a
@@ -170,9 +176,11 @@ render function (`cl.parti.output`) will later convert these values to colours.
           norm (* NORM DELTA (expt n 0.8))]
       [norm rows state])))
 
+;; #### The 'rectangle' builder.
+
 (defn- reflect
-  "Reflect the lower triangle to the upper.  This allows the 'reactangle'
-  render to generate an initial, asymmetric pattern."
+  "Reflect the lower triangle to the upper.  This allows the `rectangle`
+  builder to generate an initial, asymmetric pattern."
   [n rows]
   (for [x (range n)]
     (for [y (range n)]
@@ -180,7 +188,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
         (nth (nth rows x) y)))))
 
 (defn rectangle
-  "The rectangle render function."
+  "The rectangle builder function."
   [n]
   (fn [state]
     (let [[rows state]

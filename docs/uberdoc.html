@@ -3029,7 +3029,7 @@ net.brehaut.ClojureTools = (function (SH) {
   };
 })(SyntaxHighlighter);
 </script><title>cl.parti -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">cl.parti</h1><h2 class="project-version">1.0.0-SNAPSHOT</h2><br /><p>Towards graphical cryptographic hashes.</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.4.0</td></tr><tr><td class="dep-name">org.clojure/math.numeric-tower</td><td class="dotted"><hr /></td><td class="dep-version">0.0.1</td></tr><tr><td class="dep-name">ar.com.hjg/pngj</td><td class="dotted"><hr /></td><td class="dep-version">0.90.0</td></tr><tr><td class="dep-name">org.clojure/tools.cli</td><td class="dotted"><hr /></td><td class="dep-version">0.2.1</td></tr><tr><td class="dep-name">commons-codec/commons-codec</td><td class="dotted"><hr /></td><td class="dep-version">1.6</td></tr></table></div><div class="dependencies"><h3>dev dependencies</h3><table><tr><td class="dep-name">lein-marginalia</td><td class="dotted"><hr /></td><td class="dep-version">0.7.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#cl.parti.-readme">cl.parti.-readme</a></li><li><a href="#cl.parti.cli">cl.parti.cli</a></li><li><a href="#cl.parti.diagonal">cl.parti.diagonal</a></li><li><a href="#cl.parti.dump">cl.parti.dump</a></li><li><a href="#cl.parti.fourier">cl.parti.fourier</a></li><li><a href="#cl.parti.hsl">cl.parti.hsl</a></li><li><a href="#cl.parti.input">cl.parti.input</a></li><li><a href="#cl.parti.main">cl.parti.main</a></li><li><a href="#cl.parti.mosaic">cl.parti.mosaic</a></li><li><a href="#cl.parti.output">cl.parti.output</a></li><li><a href="#cl.parti.png">cl.parti.png</a></li><li><a href="#cl.parti.random">cl.parti.random</a></li><li><a href="#cl.parti.utils">cl.parti.utils</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.-readme" name="cl.parti.-readme"><h1 class="project-name">cl.parti.-readme</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><h2>Graphical Hashes</h2>
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.4.0</td></tr><tr><td class="dep-name">org.clojure/math.numeric-tower</td><td class="dotted"><hr /></td><td class="dep-version">0.0.1</td></tr><tr><td class="dep-name">org.clojure/math.combinatorics</td><td class="dotted"><hr /></td><td class="dep-version">0.0.2</td></tr><tr><td class="dep-name">ar.com.hjg/pngj</td><td class="dotted"><hr /></td><td class="dep-version">0.90.0</td></tr><tr><td class="dep-name">org.clojure/tools.cli</td><td class="dotted"><hr /></td><td class="dep-version">0.2.1</td></tr><tr><td class="dep-name">commons-codec/commons-codec</td><td class="dotted"><hr /></td><td class="dep-version">1.6</td></tr><tr><td class="dep-name">net.sf.trove4j/trove4j</td><td class="dotted"><hr /></td><td class="dep-version">3.0.2</td></tr></table></div><div class="dependencies"><h3>dev dependencies</h3><table><tr><td class="dep-name">lein-marginalia</td><td class="dotted"><hr /></td><td class="dep-version">0.7.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#cl.parti.-readme">cl.parti.-readme</a></li><li><a href="#cl.parti.analysis">cl.parti.analysis</a></li><li><a href="#cl.parti.cli">cl.parti.cli</a></li><li><a href="#cl.parti.diagonal">cl.parti.diagonal</a></li><li><a href="#cl.parti.fourier">cl.parti.fourier</a></li><li><a href="#cl.parti.hsl">cl.parti.hsl</a></li><li><a href="#cl.parti.input">cl.parti.input</a></li><li><a href="#cl.parti.main">cl.parti.main</a></li><li><a href="#cl.parti.output">cl.parti.output</a></li><li><a href="#cl.parti.png">cl.parti.png</a></li><li><a href="#cl.parti.random">cl.parti.random</a></li><li><a href="#cl.parti.utils">cl.parti.utils</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.-readme" name="cl.parti.-readme"><h1 class="project-name">cl.parti.-readme</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><h2>Graphical Hashes</h2>
 
 <p>Particl is a program (and library) to generate <em>graphical hashes</em>.  In
 particular, it tries to approximate <em>graphical cryptographic hashes</em>.  This
@@ -3089,9 +3089,289 @@ the pipeline are assembled from command line arguments by the code in
 <p>The algorithms for generating the distinctive patterns are in
 <code>cl.parti.diagonal</code>, while most of the cryptographic properties depend on
 the routines in <code>cl.parti.random</code>.</p>
+
+<p>Marginalia arranges documentation by alphabetical module name, so below
+we start with analysis of the mosaics.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
-  cl.parti.-readme)</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.cli" name="cl.parti.cli"><h1 class="project-name">cl.parti.cli</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>This module interacts with the user on the command line.  It provides help,
+  cl.parti.-readme)</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.analysis" name="cl.parti.analysis"><h1 class="project-name">cl.parti.analysis</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Functions to help explore the statistical properties of the generated mosaics.</p>
+
+<p>Analysis here focuses on the internal representation, after normalisation.
+This contains the essential 'pattern' in the data, without additional
+(and quantifiable) variations due to orientation, choice of hue, etc,
+which reduces the search space needed to identify collisions.</p>
+</td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
+      :author &quot;andrew@acooke.org&quot;}
+  cl.parti.analysis
+  cl.parti.dump
+  (:use (cl.parti input utils))
+  (:import java.io.File)
+  (:import java.io.FileOutputStream)
+  (:import java.io.FileInputStream)
+  (:import java.io.BufferedInputStream)
+  (:import java.util.Random)
+  (:import gnu.trove.map.hash.TLongByteHashMap)
+  (:use clojure.java.io)
+  (:use clojure.math.numeric-tower)
+  (:use clojure.math.combinatorics))</pre></td></tr><tr><td class="docs"><h2>Generate 'database' of patterns</h2>
+
+<p>A database provides faster access than generating on the fly (it takes
+about 10 hours to generate a million 20x20 mosaics on my laptop).</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Extract the unique data from the lower triangle of the mosaic.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- triangle
+  ([rows] (triangle rows 1))
+  ([rows n]
+    (let [rows (seq rows)]
+      (if rows
+        (cons (take n (first rows)) (triangle (rest rows) (inc n)))
+        nil))))</pre></td></tr><tr><td class="docs"><p>The number of bytes in the lower triangle </p>
+</td><td class="codes"><pre class="brush: clojure">(defn- triangle-size
+  [n]
+  (/ (* n (inc n)) 2))</pre></td></tr><tr><td class="docs"><p>Convert the normalized render output, which are floats in [-1 1], to bytes.</p>
+
+<p>  We need to be careful about rounding to integers about zero.  Scaling to
+  [0 255] would give more values at [0] since [0 1) is rounded there.  So
+  scale to [0 255.99] as an approximation for [0 256).</p>
+
+<p>  Conversion to (native, signed) bytes uses bit-equivalent values.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- to-byte
+  [x]
+  (sign-byte (int (* (/ 255.99 2) (+ 1 x)))))</pre></td></tr><tr><td class="docs"><p>Take the output from a render function, extract the lower triangle, and
+  scale to one byte per pixel.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- extract
+  [rows]
+  (byte-array (map to-byte (flatten (triangle rows)))))</pre></td></tr><tr><td class="docs"><p>Ensure that file <code>path</code> exists.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- touch
+  [path]
+  (let [file (File. path)]
+    (.createNewFile file)))</pre></td></tr><tr><td class="docs"><p>Measure the size size of a file, in terms of the number of mosaics.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- measure
+  [path n]
+  (/ (.length (File. path)) (triangle-size n)))</pre></td></tr><tr><td class="docs"><p>Print some output to stdout as a task runs.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn print-tick
+  [factor]
+  (fn [i]
+    (cond
+      (= 0 (mod i (* 1000 factor))) (println i)
+      (= 0 (mod i (* 100 factor))) (do (print &quot;O&quot;) (flush))
+      (= 0 (mod i (* 10 factor))) (do (print &quot;o&quot;) (flush))
+      (= 0 (mod i factor)) (do (print &quot;.&quot;) (flush)))))</pre></td></tr><tr><td class="docs"><p>Generate a dummy tick function, for use when no output is required.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn no-tick
+  (fn [i]))</pre></td></tr><tr><td class="docs"><p>Append <code>count</code> patterns to the database file.</p>
+
+<p>  The patterns are based on the SHA-1 hash of the UTF8 encoded string
+  representation of the pattern number, plus the prefix, starting at 0.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn dump
+  [tick path count normalize render n prefix]
+  (touch path)
+  (let [offset (measure path n)
+        hash (word-hash &quot;SHA-1&quot;)
+        render (render n)]
+    (println &quot;skipping&quot; offset &quot;existing entries&quot;)
+    (with-open [out (FileOutputStream. path Boolean/TRUE)]
+      (doseq [i (range offset (+ offset count))]
+        (let [state (hash (str prefix i))
+              [rows state] (normalize (render state))]
+          (tick i)
+          (.write out (extract rows)))))))</pre></td></tr><tr><td class="docs"><h2>Read and process database contents</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Read <code>target</code> bytes into the buffer.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- fill-buffer
+  ([stream buffer] (fill-buffer stream buffer (count buffer) 0))
+  ([stream buffer target offset]
+    (if (= offset target)
+      buffer
+      (let [delta (.read stream buffer offset (- target offset))]
+        (if (&lt; delta 1)
+          nil
+          (recur stream buffer target (+ delta offset)))))))</pre></td></tr><tr><td class="docs"><p>Divide the stream into <code>buffer</code>-size chunks and fold the function over
+  these.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- reduce-buffer
+  ([f acc stream buffer] (reduce-buffer f acc stream buffer 0))
+  ([f acc stream buffer count]
+    (print-count count 100)
+    (if-let [buffer (fill-buffer stream buffer)]
+      (recur f (f acc buffer) stream buffer (inc count))
+      acc)))</pre></td></tr><tr><td class="docs"><p>Reduce the database using the function <code>f</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- reduce-dump
+  [f zero path n]
+  (let [buffer (byte-array (repeat (triangle-size n) (byte 0)))]
+    (with-open [in (BufferedInputStream. (FileInputStream. path))]
+      (reduce-buffer f zero in buffer))))</pre></td></tr><tr><td class="docs"><p>Divide the stream into <code>buffer</code>-size chunks and map the function over
+  these.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- map-buffer
+  ([f stream buffer] (map-buffer f stream buffer 0))
+  ([f stream buffer count]
+    (lazy-seq
+      (print-count count 100)
+      (if-let [buffer (fill-buffer stream buffer)]
+        (cons (f buffer) (map-buffer f stream buffer (inc count))
+          nil)))))</pre></td></tr><tr><td class="docs"><p>Map over the database using the function <code>f</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- map-dump
+  [f path n]
+  (let [buffer (byte-array (repeat (triangle-size n) (byte 0)))]
+    (with-open [in (BufferedInputStream. (FileInputStream. path))]
+      (map-buffer f in buffer))))</pre></td></tr><tr><td class="docs"><h2>Histogram the pixel values</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Convert a buffer of (native, signed) bytes to unsigned, bit-equivalent
+  integers.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- to-ints
+  [s]
+  (map unsign-byte s))</pre></td></tr><tr><td class="docs"><p>Add a value to a histogram of values.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- hist-byte
+  [hist x]
+  (let [hist (assoc hist x (inc (get hist x 0)))]
+    hist))</pre></td></tr><tr><td class="docs"><p>Add all values from a buffer to a histogram of values.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- hist-buffer
+  [hist buffer]
+  (reduce hist-byte hist (to-ints buffer)))</pre></td></tr><tr><td class="docs"><p>Generate a histogram of the values (as unsigned bytes) in the database.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn hist-dump
+  [path n]
+  (let [cs (triangle-size n)
+        hist (reduce-dump hist-buffer {} path cs)
+        biggest (apply max (vals hist))
+        scale (/ 60 biggest)]
+    (println)
+    (println path)
+    (doseq [i (range 256)]
+      (let [n (get hist i 0)]
+        (printf &quot;%3d: %8d %s\n&quot; i n (apply str (repeat (* scale n) &quot;*&quot;)))))))</pre></td></tr><tr><td class="docs"><h2>Identify 'close' patterns</h2>
+
+<p>Locality-sentitive hashing identifies 'neighbours; pairs of neighbours
+are recorded; the process repeats until a pair is identified by a
+sufficient number of hashes.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><h4>Sampling the pattern to generate a locality-sensitive hash.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Scaling factor for the calculation below.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private
+    EXPECTED_N 1e-4)</pre></td></tr><tr><td class="docs"><p>Set the number of samples so that the expected number of pairs in the
+   database, for perfectly random mosaics, is N.  The low value of N needed
+   (above) reflects the regularity of the patterns, I think (even so, it
+   is surprising - perhaps there is an error here?).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- estimate-samples
+; p^n-samples * size = N
+; p^n-samples = N/size
+; n-samples * log(p) = log(N) - log(size)
+; n-samples = (log(N) - log(size))/log(p)
+; p = 1 / max
+; n-samples = log(size/N)/log(max)
+  [n bits size]
+  (let [n-samples (int (/ (Math/log (/ size EXPECTED_N)) (Math/log (bit-shift-left 1 bits))))]
+    (println n-samples &quot;samples&quot;)
+    n-samples))</pre></td></tr><tr><td class="docs"><p>Generate indices into the pattern for the samples.</p>
+
+<p>  A <code>java.util.Random</code> is used to provide a repeatable sequence.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- select-samples
+  ([n random from] (select-samples n random from []))
+  ([n random from samples]
+    (if (zero? n)
+      samples
+      (let [sample (nth from (.nextInt random (count from)))]
+        (recur (dec n) random
+          (filterv #(not= % sample) from)
+          (conj samples sample))))))</pre></td></tr><tr><td class="docs"><p>Given the number of bits to keep, discard the least significant bits.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- make-mask
+  ([ones] (make-mask (dec ones) 1 7))
+  ([ones mask all]
+    (if (zero? all)
+      (do (println &quot;mask&quot; mask) mask)
+      (let [mask (* 2 mask)]
+        (recur (dec ones) (if (&gt; ones 0) (inc mask) mask) (dec all))))))</pre></td></tr><tr><td class="docs"><p>Sample the pattern and mask the values.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- select-hash
+  ([samples mask buffer] (select-hash samples mask buffer []))
+  ([samples mask buffer hash]
+    (let [samples (seq samples)]
+      (if samples
+        (recur (rest samples) mask buffer
+          (conj hash (bit-and mask (nth buffer (first samples)))))
+        hash))))</pre></td></tr><tr><td class="docs"><p>Construct a function that will be 'reduced' over the database, accumulating
+  the hashes for a single pass.</p>
+
+<p>  The output here is a map from hash to all image indices with that hash
+  (all 'neighbours')</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- make-hash
+  [n bits path random]
+  (let [mask (make-mask bits)
+        size (measure path n)
+        n-samples (estimate-samples n bits size)
+        samples (select-samples n-samples random (range n))]
+    (println &quot;hash of&quot; bits &quot;bits with&quot; n-samples &quot;samples:&quot; samples)
+    (fn [[i matches] buffer]
+      (let [hash (select-hash samples mask buffer)
+            matches (assoc matches hash (conj (get matches hash []) i))
+            i (inc i)]
+        [i matches]))))</pre></td></tr><tr><td class="docs"><h4>Counting each image pair.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Reduce a pair of image indices to a single long value.  This saves space
+  and allows the use of a primitive types collection to map from pairs to
+  the number of times they are associated.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- pack
+  [size n1 n2]
+  (+ (* size n1) n2))</pre></td></tr><tr><td class="docs"><p>Extract the two image indices from the packed value.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- unpack
+  [size pair]
+  [(int (/ pair size)) (mod pair size)])</pre></td></tr><tr><td class="docs"><p>Iterate over the neighbour information, expanding the neighbours into
+  pairs, and incrementing the count for each pair.</p>
+
+<p>  The map from pairs to count is a mutable, primitive type map for
+  (memory and cpu) efficiency.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- collect
+  [size matches [_ hashes]]
+  (println (count hashes) &quot;sets of neighbours&quot;)
+  (doseq [nbrs (map (comp int-array sort) (vals hashes))]
+    (let [n (count nbrs)]
+      (when (&gt; n 1)
+        (when (&gt; n 100) (println n))
+        (doseq [i (range 1 (count nbrs))]
+          (when (and (&gt; n 1000) (zero? (mod i 100))) (println &quot; &quot;, i))
+          (doseq [j (range i)]
+            (let [pair (pack size (nth nbrs i) (nth nbrs j))]
+              (if-let [value (.get matches pair)]
+                (.put matches pair (byte (inc value)))
+                (.put matches pair (byte 0)))))))))
+  matches)</pre></td></tr><tr><td class="docs"><h4>Tying everything together.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Reverse <code>compare</code> to sort in descending order.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn rev-compare
+  [a b]
+  (* -1 (compare a b)))</pre></td></tr><tr><td class="docs"><p>Generate a predicate used to select values over some limit.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn over
+  [lo]
+  (fn [entry] (&gt;= (.getValue entry) lo)))</pre></td></tr><tr><td class="docs"><p>Generate a predicate that assesses the pair-count information, stops
+  the search when a pair with <code>hi</code> or more counts is found, and returns
+  all pairs with <code>lo</code> or more counts.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn stop-after
+  [size lo hi]
+  (fn [matches]
+    (if (.isEmpty matches)
+      (do (println &quot;no matches&quot;) nil)
+      (let [max (first (sort rev-compare (.values matches)))]
+        (println &quot;matches at&quot; max)
+        (if (&lt; max hi)
+          (do (println &quot;too few matches&quot;) nil)
+          (letfn [(over [key]
+                    (let [value (.get matches key)]
+                      (&gt;= value lo)))
+                  (to-pair [key]
+                    (let [value (.get matches key)]
+                      [(unpack size key) value]))]
+            (map to-pair (filter over (.keys matches)))))))))</pre></td></tr><tr><td class="docs"><p>The approach here uses a sample of 'pixel' values, with least significant
+   bits discarded, as a locality sensitive hash.  By repeating the hashing
+   multiple times, and counting how often the hash identifies particular
+   pairs of images, we can find the closest pairs.</p>
+
+<p>   Unfortunately the choice of mask, number of samples, and cut-off point
+   are hard to automate completely - parameters need 'tweaking' by hand
+   when used.</p>
+
+<p>   For poor choices of parameters, memory use is prohibitive (even in normal
+   use the implementation takes care to reduce memory and cpu use).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn group-dump
+  ([path n bits [lo hi] seed]
+    (let [size (measure path n)
+          stop (stop-after size lo hi)]
+      (group-dump path n bits size stop (Random. seed) (TLongByteHashMap.))))
+  ([path n bits size stop random matches]
+    (if-let [results (stop matches)]
+      results
+      (recur path n bits size stop random
+        (collect size matches
+          (reduce-dump (make-hash n bits path random) [0 {}] path n))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.cli" name="cl.parti.cli"><h1 class="project-name">cl.parti.cli</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>This module interacts with the user on the command line.  It provides help,
 parses options, and assembles the pipeline components necessary to generate
 the mosaic(s).</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
@@ -3155,7 +3435,7 @@ related values, until we have enough information to construct the pipeline.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Convert all numerical options to integers.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn convert-int
   [options]
-  (let [names #{:tile-number :tile-size :border-width }]
+  (let [names #{:tile-number :tile-size :border-width :raw }]
     (apply merge
       (for [[k v] options]
         {k (if (and v (names k)) (parse-int v k) v)}))))</pre></td></tr><tr><td class="docs"><p>Validate that the number of tiles along one side of a mosaic lies within
@@ -3172,22 +3452,36 @@ related values, until we have enough information to construct the pipeline.</p>
   (when-let [input (:input options)]
     (when (and (= input &quot;hex&quot;) (:hash-algorithm options))
       (error &quot;--hash-algorithm conflicts with --input hex&quot;)))
+  options)</pre></td></tr><tr><td class="docs"><p>Validate that the rate for holes is within a reasonable range.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn check-holes
+  [options]
+  (when-let [n (:holes options)]
+    (assert-range n 1 100 &quot;--holes&quot;))
   options)</pre></td></tr><tr><td class="docs"><p>Provide a default style, based on the input type.  If we are hashing
 individual words then we select the 'user' style - a simple, attractive
 design, suitable for identifying users.  Otherwise (ie when hashing files)
 we select the 'hash' style, which is more secure (contains more detail).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn-defaults [set-style-1 :input-type ]
   &quot;word&quot; {:style &quot;user&quot;}
-  :else {:style &quot;hash&quot;})</pre></td></tr><tr><td class="docs"><p>Expand the given style to affect other, appropriate options.  If a user
+  :else {:style &quot;hash&quot;})</pre></td></tr><tr><td class="docs"><p>A pre-defined style for user icons.  Simple and colourful.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private
+  USER {:tile-number 5 :tile-size 20 :border-colour &quot;white&quot; :border-width 3
+        :hash-algorithm &quot;MD5&quot; :builder &quot;rectangle&quot; :normalize &quot;sigmoid&quot;})</pre></td></tr><tr><td class="docs"><p>The base style for cryptographic data hashes.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private
+  BASE_HASH {:tile-number 20 :border-colour &quot;black&quot; :border-width 1
+             :builder &quot;rectangle&quot; :normalize &quot;histogram&quot;})</pre></td></tr><tr><td class="docs"><p>A pre-defined style for moderate security.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private
+  HASH_100 (?merge {:tile-size 4 :hash-algorithm &quot;SHA-256&quot;} BASE_HASH))</pre></td></tr><tr><td class="docs"><p>A pre-defined style for higher security (at the cost of ease of use).</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private
+  HASH_200 (?merge {:tile-size 6 :hash-algorithm &quot;SHA-512&quot; :holes 4} BASE_HASH))</pre></td></tr><tr><td class="docs"><p>Expand the given style to affect other, appropriate options.  If a user
 has specified an option on the command line then that will take precedence
 over the defaults given here.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn-defaults [set-style-2 :style ]
-  &quot;hash&quot; {:tile-number 20 :tile-size 4
-          :border-colour &quot;black&quot; :border-width 1
-          :hash-algorithm &quot;SHA-512&quot; :render &quot;rectangle&quot;}
-  &quot;user&quot; {:tile-number 5 :tile-size 20
-          :border-colour &quot;white&quot; :border-width 3
-          :hash-algorithm &quot;MD5&quot; :render &quot;rectangle&quot;})</pre></td></tr><tr><td class="docs"><h4>Combine multiple options to find the background colour</h4>
+</td><td class="codes"><pre class="brush: clojure">(defn-defaults
+  [set-style-2 :style ]
+  &quot;hash&quot; HASH_100
+  &quot;hash-100&quot; HASH_100
+  &quot;hash-200&quot; HASH_200
+  &quot;user&quot; USER)</pre></td></tr><tr><td class="docs"><h4>Combine multiple options to find the background colour</h4>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Extract a 'border-colour' option, which should be a common colour name,
   and convert it to an RGB value use the names of static fields in Java's
   Color class.</p>
@@ -3228,14 +3522,14 @@ over the defaults given here.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn process-options
   [options]
   (-&gt; options
-    convert-int check-tile-number check-hash-algorithm
+    convert-int check-tile-number check-hash-algorithm check-holes
     set-style-1 set-style-2
     lookup-colour colour-components
     show-options))</pre></td></tr><tr><td class="docs"><h2>Pipeline construction</h2>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Select the appropriate functions from other modules, based on the
 options constructed above, so that we can construct the mosaic pipeline.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>The 'reader' function is a source of input data, using either command line
-  arguments or stdin; the 'hash' function hashes this data.  These are
+</td><td class="codes"></td></tr><tr><td class="docs"><p>The reader function is a source of input data, using either command line
+  arguments or stdin; the hash function hashes this data.  These are
   selected together, based on the 'input-type' option and the presence of
   command line arguments.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn select-input
@@ -3243,20 +3537,32 @@ options constructed above, so that we can construct the mosaic pipeline.</p>
   (key-case [:input-type options]
     &quot;hex&quot; [(if args literal-reader line-reader) (hex-hash hash)]
     &quot;word&quot; [(if args literal-reader line-reader) (word-hash hash)]
-    &quot;file&quot; [(if args file-reader stdin-reader) (stream-hash hash)]))</pre></td></tr><tr><td class="docs"><p>The 'builder' function constructs an abstract, internal representation of
-  the image, given the hash; the 'render' function expands that to HSL pixels.
-  Their selection is based on multiple command-line options.</p>
+    &quot;file&quot; [(if args file-reader stdin-reader) (stream-hash hash)]))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn select-normalize
+  [options]
+  (key-case [:normalize options]
+    &quot;sigmoid&quot; normalize-sigmoid
+    &quot;histogram&quot; normalize-histogram))</pre></td></tr><tr><td class="docs"><p>The builder function constructs an abstract, internal representation of
+  the image, given the hash.  The range of values is then reduced by the
+  normalize function.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn select-builder
+  [options n]
+  (let [normalize (select-normalize options)]
+    (key-case [:builder options]
+      &quot;rectangle&quot; [(rectangle n) normalize]
+      &quot;square&quot; [(square n) normalize]
+      &quot;fourier&quot; [(fourier n) normalize])))</pre></td></tr><tr><td class="docs"><p>The render function expands the output from the builder to HSL pixels.
+  Pixels can be modified by the editor function.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn select-render
   [options n]
   (let [scale (:tile-size options)
         colour (:border-colour options)
         width (:border-width options)
         mono (:monochrome options)
-        render (render-floats n scale colour width mono)]
-    (key-case [:render options]
-      &quot;rectangle&quot; [(rectangle n) render]
-      &quot;square&quot; [(square n) render]
-      &quot;fourier&quot; [(fourier n) render])))</pre></td></tr><tr><td class="docs"><p>The 'display' function presents the HSL pixels to the user as a concrete
+        raw (:raw options)
+        rate (:holes options)]
+    [(render-floats n scale colour width mono raw)
+     (if rate (holes n scale width rate) no-editor)]))</pre></td></tr><tr><td class="docs"><p>The 'display' function presents the HSL pixels to the user as a concrete
   image.  If the user defines the 'output' option then this is saved to a
   file; otherwise it is displayed on the screen.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn select-display
@@ -3270,6 +3576,7 @@ options constructed above, so that we can construct the mosaic pipeline.</p>
         hash (:hash-algorithm options)]
     [(select-input options hash args)
      (select-builder options n)
+     (select-render options n)
      (select-display options)]))</pre></td></tr><tr><td class="docs"><h2>Command line interface</h2>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Define the available command-line keywords, guide the the user, process the
   entered options, and select the pipeline components necessary to create
@@ -3287,8 +3594,11 @@ options constructed above, so that we can construct the mosaic pipeline.</p>
     [&quot;--border-red&quot; &quot;Border red component (0-255)&quot;]
     [&quot;--border-green&quot; &quot;Border green component (0-255)&quot;]
     [&quot;--border-blue&quot; &quot;Border blue component (0-255)&quot;]
-    [&quot;-r&quot; &quot;--render&quot; &quot;How image rendered (rectangle, square, fourier)&quot;]
-    [&quot;-m&quot; &quot;--monochrome&quot; &quot;Greyscale images&quot; :flag true]
+    [&quot;--builder&quot; &quot;How image is built (rectangle, square, fourier)&quot;]
+    [&quot;--normalize&quot; &quot;Image normalisation (histogram, sigmoid)&quot;]
+    [&quot;--monochrome&quot; &quot;Greyscale images&quot; :flag true]
+    [&quot;--raw&quot; &quot;Basic format, fixed hue (0-255)&quot;]
+    [&quot;--holes&quot; &quot;Add holes of given density (1-100)&quot;]
     [&quot;-a&quot; &quot;--hash-algorithm&quot; &quot;The hash to use (SHA-512, etc)&quot;]
     [&quot;-h&quot; &quot;--help&quot; &quot;Display help&quot; :flag true]
     [&quot;-v&quot; &quot;--verbose&quot; &quot;Additional output&quot; :flag true])]
@@ -3342,26 +3652,7 @@ partially) in the lower triangle, and then enforces symmetry by mirroring
 that triangle.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Range over which values can be shifted in a single transformation.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
-  DELTA 127)</pre></td></tr><tr><td class="docs"><p>Generate two values, <code>side</code> and <code>offset</code>, selecting the first from a uniform
-  distribution in the range [0 n) and the second in the range [0 (n-side)).
-  This means that <code>side</code> and <code>side+offset</code> are both in [0 n).</p>
-
-<p>  The value of <code>side</code> is then incremented by 1 to give a non-zero square,
-  which <code>offset</code> will position on the diagonal.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- rand-square
-  [n state]
-  (let [[side state] (rand-byte n state)
-        [offset state] (rand-byte (- n side) state)]
-    [[(inc side) offset] state]))</pre></td></tr><tr><td class="docs"><p>Generate four values - the sides and offset of a rectangle - so that
-  the rectangle lies at least partly in the lower triangle (including the
-  diagonal).</p>
-
-<p>  Details / ranges are as for <code>rand-square</code>.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- rand-rectangle
-  [n state]
-    (let [[[dx x] state] (rand-square n state)
-          [[dy y] state] (rand-square n state)]
-      (if (&gt; y x) (recur n state) [[dx dy x y] state])))</pre></td></tr><tr><td class="docs"><p>Generate a uniformly distributed pseudo-random integer in the range
+  DELTA 127)</pre></td></tr><tr><td class="docs"><p>Generate a uniformly distributed pseudo-random integer in the range
   [-DELTA DELTA].</p>
 
 <p>  This value is used to give the strength of the shift applied to the
@@ -3380,21 +3671,55 @@ that triangle.</p>
   (lazy-seq
     (let [[location state] (generator n state)
           [delta state] (rand-range state)]
-      (cons [delta location state] (parameters generator n state)))))</pre></td></tr><tr><td class="docs"><h2>The transformations</h2>
+      (cons [delta location state] (parameters generator n state)))))</pre></td></tr><tr><td class="docs"><h4>Parameters for the 'square' pattern.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Generate two values, <code>side</code> and <code>offset</code>, selecting the first from a uniform
+  distribution in the range [0 n) and the second in the range [0 (n-side)).
+  This means that <code>side</code> and <code>side+offset</code> are both in [0 n).</p>
+
+<p>  The value of <code>side</code> is then incremented by 1 to give a non-zero square,
+  which <code>offset</code> will position on the diagonal.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- rand-square
+  [n state]
+  (let [[side state] (rand-byte n state)
+        [offset state] (rand-byte (- n side) state)]
+    [[(inc side) offset] state]))</pre></td></tr><tr><td class="docs"><h4>Parameters for the 'rectangular' pattern.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Generate four values - the sides and offset of a rectangle - so that
+  the rectangle lies at least partly in the lower triangle (including the
+  diagonal).</p>
+
+<p>  Details / ranges are as for <code>rand-square</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- rand-rectangle
+  [n state]
+    (let [[[dx x] state] (rand-square n state)
+          [[dy y] state] (rand-square n state)]
+      (if (&gt; y x) (recur n state) [[dx dy x y] state])))</pre></td></tr><tr><td class="docs"><h2>The transformations</h2>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Scale for converting for normalisation.  Smaller values emphasise
   middle ranges in the data.</p>
 
-<p>  A value of 0.3 gave a central bias (for square) of 90:1 (seen using the
+<p>  A value of 0.3 gave a central bias (for square) of 60:1 (seen using the
   histogram from <code>cl.parti.dump</code>); 0.1 went the other way 1:60; 0.2 was
-  reasonably flat at 1:2; using 0.22 makes the results less contrasty.</p>
+  reasonably flat at 1:2; using 0.23 makes the results less contrasty.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
-  NORM 0.22)</pre></td></tr><tr><td class="docs"><p>Apply function <code>f</code> to the value in the 2D nested sequences <code>rows</code> at
+  NORM 0.23)</pre></td></tr><tr><td class="docs"><p>Apply function <code>f</code> to the value in the 2D nested sequences <code>rows</code> at
   (<code>x</code>,<code>y</code>).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn apply-2
   [f rows [x y]]
   (let [row (rows x)
         val (f (row y))]
-    (assoc rows x (assoc row y val))))</pre></td></tr><tr><td class="docs"><p>Add <code>delta</code> to the square defined by <code>side</code> and <code>offset</code>.</p>
+    (assoc rows x (assoc row y val))))</pre></td></tr><tr><td class="docs"><p>Pull all the above together - generate a sequence of random parameters
+  and then iterate over them, repeatedly transforming the mosaic.</p>
+
+<p>  Returns the final mosaic (2D nested sequences of un-normalized integers)
+  and the latest state.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- repeated-transform
+  [generator transformer n count state]
+  (let [rows (vec (repeat n (vec (repeat n 0))))
+        [n rows state]
+        (reduce transformer [n rows]
+          (take count
+            (parameters generator n state)))]
+    [rows state]))</pre></td></tr><tr><td class="docs"><h4>The 'square' builder.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Add <code>delta</code> to the square defined by <code>side</code> and <code>offset</code>.</p>
 
 <p>  The latest <code>state</code> is made available for use by the caller.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- transform-square
@@ -3407,19 +3732,7 @@ that triangle.</p>
   [[n rows] [delta [dx dy x y] state]]
   (let [xys (for [i (range dx) j (range dy)] [(+ x i) (+ y j)])
         delta #(+ delta %)]
-    [n (reduce #(apply-2 delta %1 %2) rows xys) state]))</pre></td></tr><tr><td class="docs"><p>Pull all the above together - generate a sequence of random parameters
-  and then iterate over them, repeatedly transforming the mosaic.</p>
-
-<p>  Returns the final mosaic (2D nested sequences of un-normalized integers)
-  and the latest state.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- repeated-transform
-  [generator transformer n count state]
-  (let [rows (vec (repeat n (vec (repeat n 0))))
-        [n rows state]
-        (reduce transformer [n rows]
-          (take count
-            (parameters generator n state)))]
-    [rows state]))</pre></td></tr><tr><td class="docs"><p>The square render function.  The output from <code>repeated-transform</code> is
+    [n (reduce #(apply-2 delta %1 %2) rows xys) state]))</pre></td></tr><tr><td class="docs"><p>The square builder function.  The output from <code>repeated-transform</code> is
   normalized to the range (-1 1).</p>
 
 <p>  Some parameters are inferred from the mosaic size, <code>n</code>, to give a
@@ -3435,134 +3748,22 @@ that triangle.</p>
     (let [[rows state]
           (repeated-transform rand-square transform-square n (expt n 2) state)
           norm (* NORM DELTA (expt n 0.8))]
-      [(normalize norm rows) state])))</pre></td></tr><tr><td class="docs"><p>Reflect the lower triangle to the upper.  This allows the 'reactangle'
-  render to generate an initial, asymmetric pattern.</p>
+      [norm rows state])))</pre></td></tr><tr><td class="docs"><h4>The 'rectangle' builder.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Reflect the lower triangle to the upper.  This allows the <code>rectangle</code>
+  builder to generate an initial, asymmetric pattern.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- reflect
   [n rows]
   (for [x (range n)]
     (for [y (range n)]
       (let [[x y] (if (&gt; y x) [y x] [x y])]
-        (nth (nth rows x) y)))))</pre></td></tr><tr><td class="docs"><p>The rectangle render function.</p>
+        (nth (nth rows x) y)))))</pre></td></tr><tr><td class="docs"><p>The rectangle builder function.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn rectangle
   [n]
   (fn [state]
     (let [[rows state]
           (repeated-transform rand-rectangle transform-rectangle n (expt n 2) state)
           norm (* NORM DELTA (expt n 0.8))]
-      [(normalize norm (reflect n rows)) state])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.dump" name="cl.parti.dump"><h1 class="project-name">cl.parti.dump</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Experimental code, in development, to try assess the equivalent number of
-bits in a graphical hash.</p>
-</td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
-      :author &quot;andrew@acooke.org&quot;}
-  cl.parti.dump
-  (:use (cl.parti input utils))
-  (:import java.io.File)
-  (:import java.io.FileOutputStream)
-  (:import java.io.FileInputStream)
-  (:import java.io.BufferedInputStream)
-  (:use clojure.java.io))</pre></td></tr><tr><td class="docs"><h2>Generate 'database' of patterns</h2>
-
-<p>Here we generate a reasonably compact version of the output from render
-functions.  The generated files are used later to find collisions.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Extract the unique data from the lower triangle of the pattern.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- triangle
-  ([rows] (triangle rows 1))
-  ([rows n]
-    (let [rows (seq rows)]
-      (if rows
-        (cons (take n (first rows)) (triangle (rest rows) (inc n)))
-        nil))))</pre></td></tr><tr><td class="docs"><p>Convert the render output, which are floats in (-1 1), to bytes.</p>
-
-<p>  We need to be careful about rounding to integers about zero.  Shifting to
-  to (0 2) then scaling to (0 256) gives a result that rounds down to [0 255],
-  keeping the full range of data with uniform intervals.</p>
-
-<p>  Conversion to (native, signed) bytes uses bit-equivalent values.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- to-byte
-  [x]
-  (sign-byte (int (* 128 (+ 1 x)))))</pre></td></tr><tr><td class="docs"><p>Take the output from a render function, extract the lower triangle, and
-  scale to one byte per pixel.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- pack
-  [rows]
-  (byte-array (map to-byte (flatten (triangle rows)))))</pre></td></tr><tr><td class="docs"><p>Ensure that file <code>path</code> exists.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- touch
-  [path]
-  (let [file (File. path)]
-    (.createNewFile file)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn- chunk-size
-  [n]
-  (/ (* n (inc n)) 2))</pre></td></tr><tr><td class="docs"><p>Measure the size size of a file, in terms of the number of mosaics.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- measure
-  [path n]
-  (* (.length (File. path)) (chunk-size n)))</pre></td></tr><tr><td class="docs"><p>Print some output to stdout as a task runs.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- print-count
-  [i factor]
-  (cond
-    (= 0 (mod i (* 1000 factor))) (println i)
-    (= 0 (mod i (* 100 factor))) (do (print &quot;O&quot;) (flush))
-    (= 0 (mod i (* 10 factor))) (do (print &quot;o&quot;) (flush))
-    (= 0 (mod i factor)) (do (print &quot;.&quot;) (flush))))</pre></td></tr><tr><td class="docs"><p>Append <code>count</code> patterns to the database file.</p>
-
-<p>  The patterns are based on the SHA-1 hash of the UTF8 encoded string
-  representation of the pattern number, starting at 0.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn dump
-  [path count render n]
-  (touch path)
-  (let [offset (measure path n)
-        hash (word-hash &quot;SHA-1&quot;)
-        render (render n)]
-    (println &quot;skipping&quot; offset &quot;existing entries&quot;)
-    (with-open [out (FileOutputStream. path Boolean/TRUE)]
-      (doseq [i (range offset (+ offset count))]
-        (let [state (hash (str i))
-              [rows state] (render state)]
-          (print-count i 10)
-          (.write out (pack rows)))))))</pre></td></tr><tr><td class="docs"><h2>Read and process database contents</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Read <code>target</code> bytes into the buffer.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- fill-buffer
-  ([stream buffer] (fill-buffer stream buffer (count buffer) 0))
-  ([stream buffer target offset]
-  (if (= offset target)
-    buffer
-    (let [delta (.read stream buffer offset (- target offset))]
-      (if (&lt; delta 1)
-        nil
-        (recur stream buffer target (+ delta offset)))))))</pre></td></tr><tr><td class="docs"><p>Divide the stream into <code>buffer</code>-size chunks and fold the function over
-  these.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- reduce-buffer
-  ([stream f acc buffer] (reduce-buffer stream f acc buffer 0))
-  ([stream f acc buffer count]
-    (print-count count 100)
-    (if-let [buffer (fill-buffer stream buffer)]
-      (recur stream f (f acc buffer) buffer (inc count))
-      acc)))</pre></td></tr><tr><td class="docs"><p>Reduce the database using the function <code>f</code>.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- reduce-dump
-  [path n f zero]
-  (let [buffer (byte-array (repeat (chunk-size n) (byte 0)))]
-    (with-open [in (BufferedInputStream. (FileInputStream. path))]
-      (reduce-buffer in f zero buffer))))</pre></td></tr><tr><td class="docs"><h2>Histogram the pixel values</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Convert a buffer of (native, signed) bytes to unsigned, bit-equivalent
-  integers.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- to-ints
-  [s]
-  (map unsign-byte s))</pre></td></tr><tr><td class="docs"><p>Add a value to a histogram of values.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- hist-byte
-  [hist x]
-  (let [hist (assoc hist x (inc (get hist x 0)))]
-    hist))</pre></td></tr><tr><td class="docs"><p>Add all values from a buffer to a histogram of values.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- hist-buffer
-  [hist buffer]
-  (reduce hist-byte hist (to-ints buffer)))</pre></td></tr><tr><td class="docs"><p>Generate a histogram of the values (as unsigned bytes) in the database.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn hist-dump
-  [path n]
-  (let [cs (chunk-size n)
-        hist (reduce-dump path cs hist-buffer {})
-        biggest (apply max (vals hist))
-        scale (/ 60 biggest)]
-    (println)
-    (println path)
-    (doseq [i (range 256)]
-      (let [n (get hist i 0)]
-        (printf &quot;%3d: %8d %s\n&quot; i n (apply str (repeat (* scale n) &quot;*&quot;)))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.fourier" name="cl.parti.fourier"><h1 class="project-name">cl.parti.fourier</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>An alternative renderer to <code>square</code>.  Currently broken.</p>
+      [norm (reflect n rows) state])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.fourier" name="cl.parti.fourier"><h1 class="project-name">cl.parti.fourier</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>An alternative builder to <code>square</code> and <code>rectangle</code>.  Currently broken.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
   cl.parti.fourier
@@ -3733,30 +3934,100 @@ above).</p>
 the hash;</li>
 <li><em>hash</em> hashes the values;</li>
 <li><em>builder</em> constructs the mosaic, in an internal format, from the hash;</li>
+<li><em>normalize</em> reduces the range of the internal format;</li>
 <li><em>render</em> converts the internal format to an array of HSL pixels;</li>
+<li><em>editor</em> modifies the HSL pixels;</li>
 <li><em>display</em> presents the image to the user.</li>
 </ul>
 
 <p>The hash is applied within the reader so that the reader can close streams
 after processing.  This allows large inputs to be hashed without holding
 the entire value in memory, and without exposing open streams.</p>
+
+<p>The types of return values could vary, as long as the different components
+interact correctly, but are currently consistent for each stage.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn particl
-  [reader hash builder render display]
+  [reader hash builder normalize editor render display]
   (fn [args]
     (doseq [state (reader hash args)]
-      (-&gt; state builder render display))))</pre></td></tr><tr><td class="docs"><p>Combine the pipeline above with the command line option handling in
+      (-&gt; state builder normalize editor render display))))</pre></td></tr><tr><td class="docs"><p>Combine the pipeline above with the command line option handling in
   <code>cl.parti.cli</code> to give a command-line application.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn -main
   [&amp; args]
-  (let [[[[reader hash] [builder render] display] args] (handle-args args)]
-    ((particl reader hash builder render display) args)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.mosaic" name="cl.parti.mosaic"><h1 class="project-name">cl.parti.mosaic</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Utilities used by the render and display functions.</p>
+  (let [[[[reader hash] [builder normalize] [editor render] display] args]
+        (handle-args args)]
+    ((particl reader hash builder normalize editor render display) args)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.output" name="cl.parti.output"><h1 class="project-name">cl.parti.output</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Functions used in the output sections of the pipeline.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
-  cl.parti.mosaic
-  (:use (cl.parti random hsl))
-  (:import java.lang.Math)
-  (:use clojure.math.numeric-tower))</pre></td></tr><tr><td class="docs"><h2>Mosaic expansion</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Extend the standard <code>interpose</code> function, adding an additional copy
+  cl.parti.output
+  (:use clojure.java.io)
+  (:use (cl.parti png utils hsl random)))</pre></td></tr><tr><td class="docs"><h2>Normalize functions</h2>
+
+<p>Reduce the range of values in the internal representation.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Given a scale factor, generate a function that maps values to (-1 1).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn make-sigmoid
+  [k]
+  (fn [x]
+    (let [x (/ x k)]
+      (- (/ 2 (+ 1 (Math/exp (- x)))) 1))))</pre></td></tr><tr><td class="docs"><p>Subtract the mean value from a mosaic (2D nested sequence) of floats.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- de-mean
+  [rows]
+  (let [flat (flatten rows)
+        mean (/ (apply + flat) (count flat))]
+    (map-rows #(- % mean) rows)))</pre></td></tr><tr><td class="docs"><p>Normalize a mosaic (2D nested sequence) of floats by subtracting the mean
+  and then using a sigmoid to map into (-1 1).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn normalize
+  [norm rows]
+  (let [rows (de-mean rows)]
+    (map-rows (make-sigmoid norm) rows)))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn cumulate
+  ([values] (cumulate (distinct (sort values)) (frequencies values) 0 {}))
+  ([ordered freq sum histogram]
+    (let [value (first ordered)
+          ordered (rest ordered)
+          n (freq value)
+          histogram (assoc histogram value sum)]
+      (if (seq ordered)
+        (recur ordered freq (+ n sum) histogram)
+        (apply merge {} (map (fn [[k v]] [k (/ v sum)]) histogram))))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn equalize
+  [rows]
+  (let [hist (cumulate (flatten rows))]
+    (map-rows (fn [x] (- (* 2 (hist x)) 1)) rows)))
+(defn normalize-sigmoid
+  [[norm rows state]]
+  [(normalize norm rows) state])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn normalize-histogram
+  [[norm rows state]]
+  [(equalize rows) state])</pre></td></tr><tr><td class="docs"><h2>Render functions</h2>
+
+<p>Convert the internal representation (2D sequence of floats) to HSL pixels.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>The strength of changes in luminosity, relative to changes in hue.</p>
+</td><td class="codes"><pre class="brush: clojure">(def
+  LIGHTNESS 0.5)</pre></td></tr><tr><td class="docs"><p>Convert a mosaic (2D nested sequences) of normalized (-1 1) floats to
+  HSL triplets.</p>
+
+<p>  The mosaic is based on a (randomly selected) fully saturated hue.  The
+  float values then describe an offset, in both hue and lightness, relative
+  to that.  This approach correlates colour and lightness shifts, making the
+  structure in the mosaic more likely to visible to those with restricted
+  colour vision.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- floats-to-hsl
+  [mono lightness h-v-l hue rows-11]
+  (defn to-hsl [x]
+    (let [x (/ x 2)] ; [-1 1] =&gt; [-0.5 0.5]
+      [(if mono 0 (fold (+ hue x)))
+       (if mono 0 1)
+       (clip (+ 0.5 (* lightness h-v-l x)))]))
+  (map-rows to-hsl rows-11))</pre></td></tr><tr><td class="docs"><p>Rotate the rows.</p>
+
+<p>  Rendered images are diagonally symmetric so have two distinct orientations.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- rotate-rows
+  [n rows]
+  (let [m (dec n)]
+    (for [j (range n)]
+      (for [i (range n)]
+        (nth (nth rows (- m i)) j)))))</pre></td></tr><tr><td class="docs"><p>Extend the standard <code>interpose</code> function, adding an additional copy
   of the padding at either end of the sequence.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn bracket-interpose
   [sep col]
@@ -3784,40 +4055,102 @@ the entire value in memory, and without exposing open streams.</p>
             (apply concat
               (assemble vertical
                 (for [col row]
-                  (repeat scale col))))))))))</pre></td></tr><tr><td class="docs"><h2>General utilities</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>The 2d mosaic is generally modelled as sequences of sequences.  This
-  defines a shape-preserving map over the values.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn map-rows
-  [f rows]
-  (for [row rows]
-    (for [col row] (f col))))</pre></td></tr><tr><td class="docs"><p>This defines a simple API used to print the mosaic, implemented by the
+                  (repeat scale col))))))))))</pre></td></tr><tr><td class="docs"><p>Convert and expand the internal float-based representation, generating a
+  full mosaic of HSL values.</p>
+
+<p>  This increases the variation among images, consuming 10 bits of state.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn render-floats
+  [n scale colour width mono raw]
+  (fn [[rows state]]
+    (let [[rotate state] (if raw [1 state] (rand-sign state))
+          [h-v-l state] (if raw [1 state] (rand-sign state))
+          [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))
+          mosaic (expand-mosaic n scale colour width
+        (floats-to-hsl mono LIGHTNESS h-v-l hue
+          (if (= 1 rotate) rows (rotate-rows n rows))))]
+      [colour mosaic state])))</pre></td></tr><tr><td class="docs"><h2>Editor functions</h2>
+
+<p>Modify the HSL pixels.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Convert the nested 2D sequences to nested 2D vectors to support
+  efficient random-access updates.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- to-vec-2d
+  [rows]
+  (vec (for [row rows] (vec row))))</pre></td></tr><tr><td class="docs"><p>Update the given image, setting a pixel to the background colour.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- set-pixel
+  [bg]
+  (fn [mosaic [x y]]
+    (assoc mosaic x (assoc (mosaic x) y bg))))</pre></td></tr><tr><td class="docs"><p>Update the given image, darkening a given pixel.</p>
+
+<p>  This was an alternative to <code>set-pixel</code> that didn't look so good.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- darken-pixel
+  [bg]
+  (fn [mosaic [x y]]
+    (let [p ((mosaic x) y)]
+      (assoc mosaic x (assoc (mosaic x) y (lighten 0.5 p))))))</pre></td></tr><tr><td class="docs"><p>Generate a function which, given a tile location and corner index,
+  returns a list of pixel indices that describe a triangular 'corner'.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- corner-pixels
+  [n scale width]
+  (let [size (int (/ scale 3))
+        delta (dec scale)]
+    (fn [[x y] corner]
+      (let [[x y] (map #(+ (* % scale) (* (inc %) width)) [x y])]
+        (for [i (range size) j (range (- size i))]
+          [(+ x (if (zero? (bit-and corner 1)) i (- delta i)))
+           (+ y (if (zero? (bit-and corner 2)) j (- delta j)))])))))</pre></td></tr><tr><td class="docs"><h4>The corners editor function.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Generate a function which, given an existing list of pixels and a tile
+  location, appends pixels for a random corner on that tile.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- rand-corner
+  [n scale width]
+  (let [cp (corner-pixels n scale width)]
+    (fn [[pixels state] [x y]]
+      (let [[corner state] (rand-byte 4 state)]
+        [(cons (cp [x y] corner) pixels) state]))))</pre></td></tr><tr><td class="docs"><p>Mark a random corner of each tile.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn corners
+  [n scale width]
+  (fn [[bg mosaic state]]
+    (let [mosaic (to-vec-2d mosaic)
+          tiles (for [x (range n) y (range n)] [x y])
+          [pixels state] (reduce (rand-corner n scale width) [nil state] tiles)]
+      [(reduce (set-pixel bg) mosaic (flatten-1 pixels)) state])))</pre></td></tr><tr><td class="docs"><h4>The hole editor function.</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Choose random 'holes' on the corners of the mosaic.</p>
+
+<p>  More exactly, at generate a function which, given a point, randomly
+  decides whether or not it should contain a hole.  If so, list the
+  pixels that need to be set (affecting four neighbouring tiles).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- rand-hole
+  [n scale width rate]
+  (let [cp (corner-pixels n scale width)]
+    (fn [[pixels state] [x y]]
+      (let [[hole state] (rand-byte rate state)]
+        [(cons
+           (if (zero? hole)
+             (concat
+               (cp [x y] 3)
+               (cp [(inc x) y] 2)
+               (cp [x (inc y)] 1)
+               (cp [(inc x) (inc y)] 0))
+             nil)
+           pixels) state]))))</pre></td></tr><tr><td class="docs"><p>Add random 'punch holes' to the image.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn holes
+  [n scale width rate]
+  (fn [[bg mosaic state]]
+    (let [mosaic (to-vec-2d mosaic)
+          centres (for [x (range (dec n)) y (range (dec n))] [x y])
+          [pixels state]
+          (reduce (rand-hole n scale width rate) [nil state] centres)]
+      [(reduce (set-pixel bg) mosaic (flatten-1 pixels)) state])))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn no-editor
+  [[bg mosaic state]]
+  [mosaic state])</pre></td></tr><tr><td class="docs"><h2>Display functions</h2>
+
+<p>These take the mosaic (a 2D sequence of HSL values) and save or display
+it somewhere.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>This defines a simple API used to print the mosaic, implemented by the
   <code>cl.parti.png</code> module.  Two functions are used - one converts each
   pixel; the other is passed the mosaic dimension and the converted values.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn print-rows
   [[printer convert] rows]
-  (printer (count rows) (map-rows convert rows)))</pre></td></tr><tr><td class="docs"><h2>Range reduction</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Given a scale factor, generate a function that maps values to (-1 1).</p>
-</td><td class="codes"><pre class="brush: clojure">(defn make-sigmoid
-  [k]
-  (fn [x]
-    (let [x (/ x k)]
-      (- (/ 2 (+ 1 (Math/exp (- x)))) 1))))</pre></td></tr><tr><td class="docs"><p>Subtract the mean value from a mosaic (2D nested sequence) of floats.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- de-mean
-  [rows]
-  (let [flat (flatten rows)
-        mean (/ (apply + flat) (count flat))]
-    (map-rows #(- % mean) rows)))</pre></td></tr><tr><td class="docs"><p>Normalize a mosaic (2D nested sequence) of floats by subtracting the mean
-  and then using a sigmoid to map into (-1 1).</p>
-</td><td class="codes"><pre class="brush: clojure">(defn normalize
-  [norm rows]
-  (let [rows (de-mean rows)]
-    (map-rows (make-sigmoid norm) rows)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.output" name="cl.parti.output"><h1 class="project-name">cl.parti.output</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Functions used in the output sections of the pipeline.</p>
-</td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
-      :author &quot;andrew@acooke.org&quot;}
-  cl.parti.output
-  (:use clojure.java.io)
-  (:use (cl.parti png mosaic utils hsl random)))</pre></td></tr><tr><td class="docs"><h2>Display functions</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Save the mosaic (2D nested sequences of HSL values) as a PNG format
+  (printer (count rows) (map-rows convert rows)))</pre></td></tr><tr><td class="docs"><p>Save the mosaic (2D nested sequences of HSL values) as a PNG format
   image, using the functions defined in <code>cl.parti.png</code>.</p>
 
 <p>  Small mosaics (side of 16 or less) are indexed to reduce file size.
@@ -3830,7 +4163,7 @@ the entire value in memory, and without exposing open streams.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn file-display
   [path]
   (let [index (atom 0)]
-    (fn [rows]
+    (fn [[rows state]]
       (when (and (= @index 1) (= -1 (.indexOf path &quot;%d&quot;)))
         (printf &quot;WARNING: Multiple output images but no '%%d' in --output\n&quot;))
       (with-open [os (output-stream (format path @index))]
@@ -3840,45 +4173,7 @@ the entire value in memory, and without exposing open streams.</p>
       (swap! index inc))))</pre></td></tr><tr><td class="docs"><p>Display the image directly to the user (unimplemented).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn gui-display
   [&amp; args]
-  (error &quot;gui display&quot;))</pre></td></tr><tr><td class="docs"><h2>Render functions</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>The strength of changes in luminosity, relative to changes in hue.</p>
-</td><td class="codes"><pre class="brush: clojure">(def
-  LIGHTNESS 0.75)</pre></td></tr><tr><td class="docs"><p>Convert a mosaic (2D nested sequences) of normalized (-1 1) floats to
-  HSL triplets.</p>
-
-<p>  The mosaic is based on a (randomly selected) fully saturated hue.  The
-  float values then describe an offset, in both hue and lightness, relative
-  to that.  This approach correlates colour and lightness shifts, making the
-  structure in the mosaic more likely to visible to those with restricted
-  colour vision.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- floats-to-hsl
-  [mono lightness h-v-l hue rows-11]
-  (defn to-hsl [x]
-    (let [x (/ x 2)] ; [-1 1] =&gt; [-0.5 0.5]
-      [(if mono 0 (fold (+ hue x)))
-       (if mono 0 1)
-       (clip (+ 0.5 (* lightness h-v-l x)))]))
-  (map-rows to-hsl rows-11))</pre></td></tr><tr><td class="docs"><p>Rotate the rows.</p>
-
-<p>  Rendered images are diagonally symmetric so have two distinct orientations.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- rotate-rows
-  [n rows]
-  (let [m (dec n)]
-    (for [j (range n)]
-      (for [i (range n)]
-        (nth (nth rows (- m i)) j)))))</pre></td></tr><tr><td class="docs"><p>Convert and expand the internal float-based representation, generating a
-  full mosaic of HSL values.</p>
-
-<p>  This increases the variation among images, consuming 10 bits of state.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn render-floats
-  [n scale colour width mono]
-  (fn [[rows state]]
-    (let [[rotate state] (rand-sign state)
-          [h-v-l state] (rand-sign state)
-          [hue state] (rand-real 1 state)]
-      (expand-mosaic n scale colour width
-        (floats-to-hsl mono LIGHTNESS h-v-l hue
-          (if (= 1 rotate) rows (rotate-rows n rows)))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.png" name="cl.parti.png"><h1 class="project-name">cl.parti.png</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>A simple interface to the excellent pngj library.</p>
+  (error &quot;gui display&quot;))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.png" name="cl.parti.png"><h1 class="project-name">cl.parti.png</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>A simple interface to the excellent pngj library.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
   cl.parti.png
@@ -4100,7 +4395,11 @@ call).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn rand-sign
   [state]
   (let [[r state] (rand-byte 2 state)]
-    [(if (= 1 r) r -1) state]))</pre></td></tr><tr><td class="docs"><p>Similar to <code>rand-byte</code>, but generating a 16 bit value.</p>
+    [(if (= 1 r) r -1) state]))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random 'boolean' value (<code>nil</code> for false).</p>
+</td><td class="codes"><pre class="brush: clojure">(defn rand-bool
+  [state]
+  (let [[r state] (rand-byte 2 state)]
+    [(if (= 1 r) 1 nil) state]))</pre></td></tr><tr><td class="docs"><p>Similar to <code>rand-byte</code>, but generating a 16 bit value.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn rand-int16
   [n state]
   (assert (&gt; n 0))
@@ -4154,5 +4453,13 @@ call).</p>
   (.decode HEX hex))</pre></td></tr><tr><td class="docs"><p>Convert an array of bytes to a string of hex digits.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn format-hex
   [hex]
-  (Hex/encodeHexString hex))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+  (Hex/encodeHexString hex))</pre></td></tr><tr><td class="docs"><p>Reduce nested lists once level.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn flatten-1
+  [list]
+  (apply concat list))</pre></td></tr><tr><td class="docs"><p>The 2d mosaic is generally modelled as sequences of sequences.  This
+  defines a shape-preserving map over the values.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn map-rows
+  [f rows]
+  (for [row rows]
+    (for [col row] (f col))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
        SyntaxHighlighter.all()</script></body></html>

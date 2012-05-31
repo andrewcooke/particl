@@ -65,5 +65,14 @@ Various utilitiy functions.
   (Hex/encodeHexString hex))
 
 (defn flatten-1
+  "Reduce nested lists once level."
   [list]
   (apply concat list))
+
+(defn map-rows
+  "The 2d mosaic is generally modelled as sequences of sequences.  This
+  defines a shape-preserving map over the values."
+  [f rows]
+  (for [row rows]
+    (for [col row] (f col))))
+

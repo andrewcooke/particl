@@ -1,4 +1,4 @@
-(ns cl.parti.dump-test
+(ns cl.parti.analysis-test
   (:use (cl.parti dump diagonal output))
   (:use clojure.test))
 

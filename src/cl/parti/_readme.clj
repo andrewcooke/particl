@@ -59,6 +59,9 @@ The algorithms for generating the distinctive patterns are in
 `cl.parti.diagonal`, while most of the cryptographic properties depend on
 the routines in `cl.parti.random`.
 
+Marginalia arranges documentation by alphabetical module name, so below
+we start with analysis of the mosaics.
+
 "
       :author "andrew@acooke.org"}
   cl.parti.-readme)
