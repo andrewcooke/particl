@@ -24,7 +24,7 @@ Functions used in the output sections of the pipeline.
   20x20 mosaics (corresponding to the 'hash' style)."
   [path]
   (let [index (atom 0)]
-    (fn [rows]
+    (fn [[rows state]]
       (when (and (= @index 1) (= -1 (.indexOf path "%d")))
         (printf "WARNING: Multiple output images but no '%%d' in --output\n"))
       (with-open [os (output-stream (format path @index))]
@@ -80,10 +80,53 @@ Functions used in the output sections of the pipeline.
   (fn [[rows state]]
     (let [[rotate state] (if raw [1 state] (rand-sign state))
           [h-v-l state] (if raw [1 state] (rand-sign state))
-          [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))]
-      (expand-mosaic n scale colour width
+          [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))
+          mosaic (expand-mosaic n scale colour width
         (floats-to-hsl mono LIGHTNESS h-v-l hue
-          (if (= 1 rotate) rows (rotate-rows n rows)))))))
+          (if (= 1 rotate) rows (rotate-rows n rows))))]
+      [colour mosaic state])))
+
+(defn- to-vec-2d
+  [rows]
+  (vec (for [row rows] (vec row))))
+
+(defn- pixels
+  [n scale width state x y]
+  (let [size (int (/ scale 4))
+        delta (dec scale)
+        [x y] (map #(+ (* % scale) (* (inc %) width)) [x y])
+        [nesw state] (rand-byte 4 state)]
+    [(for [i (range size) j (range (- size i))]
+       [(+ x (if (zero? (bit-and nesw 1)) i (- delta i)))
+        (+ y (if (zero? (bit-and nesw 2)) j (- delta j)))])
+     state]))
+
+(defn- set-pixel
+  [bg]
+  (fn [mosaic [x y]]
+    (assoc mosaic x (assoc (mosaic x) y bg))))
+
+(defn- set-tile
+  [n scale width bg]
+  (fn [[mosaic state] [x y]]
+    (let [[xys state] (pixels n scale width state x y)]
+      [(reduce (set-pixel bg) mosaic xys) state])))
+
+(defn corners
+  [n scale width]
+  (fn [[bg mosaic state]]
+    (let [mosaic (to-vec-2d mosaic)
+          tiles (for [x (range n) y (range n)] [x y])]
+      (reduce (set-tile n scale width bg) [mosaic state] tiles))))
+
+
+
+;(defn holes
+;  [n scale width]
+;  (fn [[bg mosaic state]]
+;    (let [mosaic (to-vec-2d mosaic)
+;          tiles (for [x (range n) y (range n)] [x y])]
+;      (reduce (set-tile n scale width bg) [mosaic state] tiles))))
 
 (defn normalize-sigmoid
   [[norm rows state]]

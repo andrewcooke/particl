@@ -213,7 +213,7 @@ the mosaic(s).
         width (:border-width options)
         mono (:monochrome options)
         raw (:raw options)
-        render (render-floats n scale colour width mono raw)
+        render (comp (corners n scale width) (render-floats n scale colour width mono raw))
         norm (select-normalize options)]
     (key-case [:builder options]
       "rectangle" [(rectangle n) norm render]

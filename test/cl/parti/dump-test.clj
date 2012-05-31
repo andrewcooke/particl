@@ -8,7 +8,7 @@
 ;  (time (dump "/tmp/rectangle-20.dmp" 1000000 rectangle 20 "")))
 
 (deftest test-dump-10
-  (time (dump "/tmp/square-10.dmp" 1000000 normalize-histogram square 10 "a"))
+;  (time (dump "/tmp/square-10.dmp" 1000000 normalize-histogram square 10 "a"))
   (time (dump "/tmp/rectangle-10.dmp" 1000000 normalize-histogram rectangle 10 "a")))
 
 ;(deftest test-hist-dump
