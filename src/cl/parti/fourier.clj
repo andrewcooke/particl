@@ -5,7 +5,7 @@ An alternative builder to `square` and `rectangle`.  Currently broken.
 "
       :author "andrew@acooke.org"}
   cl.parti.fourier
-  (:use (cl.parti random mosaic hsl))
+  (:use (cl.parti random output))
   (:use clojure.math.numeric-tower))
 
 
@@ -31,11 +31,9 @@ An alternative builder to `square` and `rectangle`.  Currently broken.
           [amplitude state] (rand-real 1)]
       (cons [phase amplitude] (coeff state)))))
 
-; TODO - ignores diag!
-
 (defn fourier [n]
   (fn [state]
     (let [[diag state] (rand-sign state)
           coeffs (vec (take (dec n) (coeff state)))
           rows (coeffs-to-rows n coeffs)]
-      (normalize NORM rows))))
+      [NORM rows state])))

@@ -13,6 +13,8 @@ Functions used in the output sections of the pipeline.
 ;;
 ;; Reduce the range of values in the internal representation.
 
+;; #### Soft normalisation
+
 (defn make-sigmoid
   "Given a scale factor, generate a function that maps values to (-1 1)."
   [k]
@@ -27,14 +29,18 @@ Functions used in the output sections of the pipeline.
         mean (/ (apply + flat) (count flat))]
     (map-rows #(- % mean) rows)))
 
-(defn normalize
-  "Normalize a mosaic (2D nested sequence) of floats by subtracting the mean
-  and then using a sigmoid to map into (-1 1)."
-  [norm rows]
+(defn normalize-sigmoid
+  "Subtract the mean and then normalize with a sigmoid, giving a 'soft'
+  appearance and reduced dynamic range."
+  [[norm rows state]]
   (let [rows (de-mean rows)]
-    (map-rows (make-sigmoid norm) rows)))
+    [(map-rows (make-sigmoid norm) rows) state]))
+
+;; #### Hard normalisation
 
 (defn cumulate
+  "Calculate the CDF of distribution (recurrence) and then apply that to
+  the image, mapping values to be equi-distributed."
   ([values] (cumulate (distinct (sort values)) (frequencies values) 0 {}))
   ([ordered freq sum histogram]
     (let [value (first ordered)
@@ -43,20 +49,16 @@ Functions used in the output sections of the pipeline.
           histogram (assoc histogram value sum)]
       (if (seq ordered)
         (recur ordered freq (+ n sum) histogram)
-        (apply merge {} (map (fn [[k v]] [k (/ v sum)]) histogram))))))
-
-(defn equalize
-  [rows]
-  (let [hist (cumulate (flatten rows))]
-    (map-rows (fn [x] (- (* 2 (hist x)) 1)) rows)))
-(defn normalize-sigmoid
-  [[norm rows state]]
-  [(normalize norm rows) state])
+        (if (zero? sum)
+          {value 0.5} ; special case where single value in all cells
+          (apply merge {} (map (fn [[k v]] [k (/ v sum)]) histogram)))))))
 
 (defn normalize-histogram
+  "Normalize with histogram-equalisation, giving a 'hard' appearance and
+  maximum dynamic range."
   [[norm rows state]]
-  [(equalize rows) state])
-
+  (let [hist (cumulate (flatten rows))]
+    [(map-rows (fn [x] (- (* 2 (hist x)) 1)) rows) state]))
 
 ;; ## Render functions
 ;;
@@ -64,7 +66,7 @@ Functions used in the output sections of the pipeline.
 
 (def
   ^{:doc "The strength of changes in luminosity, relative to changes in hue."}
-  LIGHTNESS 0.5)
+  LIGHTNESS 1)
 
 (defn- floats-to-hsl
   "Convert a mosaic (2D nested sequences) of normalized (-1 1) floats to
@@ -233,6 +235,7 @@ Functions used in the output sections of the pipeline.
       [(reduce (set-pixel bg) mosaic (flatten-1 pixels)) state])))
 
 (defn no-editor
+  "A dummy editor function for when nothing is required."
   [[bg mosaic state]]
   [mosaic state])
 
@@ -262,7 +265,7 @@ Functions used in the output sections of the pipeline.
   20x20 mosaics (corresponding to the 'hash' style)."
   [path]
   (let [index (atom 0)]
-    (fn [[rows state]]
+    (fn [[rows state]] ; TODO - why state here?
       (when (and (= @index 1) (= -1 (.indexOf path "%d")))
         (printf "WARNING: Multiple output images but no '%%d' in --output\n"))
       (with-open [os (output-stream (format path @index))]

@@ -10,7 +10,6 @@ which reduces the search space needed to identify collisions.
 "
       :author "andrew@acooke.org"}
   cl.parti.analysis
-  cl.parti.dump
   (:use (cl.parti input utils))
   (:import java.io.File)
   (:import java.io.FileOutputStream)
@@ -42,7 +41,8 @@ which reduces the search space needed to identify collisions.
   (/ (* n (inc n)) 2))
 
 (defn- to-byte
-  "Convert the normalized render output, which are floats in [-1 1], to bytes.
+  "Convert the normalized render output, which are floats in [-1 1]
+  (analysis here assumes histogram-equalized data), to bytes.
 
   We need to be careful about rounding to integers about zero.  Scaling to
   [0 255] would give more values at [0] since [0 1) is rounded there.  So
@@ -81,7 +81,7 @@ which reduces the search space needed to identify collisions.
 
 (defn no-tick
   "Generate a dummy tick function, for use when no output is required."
-  (fn [i]))
+  [i])
 
 (defn dump
   "Append `count` patterns to the database file.
@@ -117,37 +117,37 @@ which reduces the search space needed to identify collisions.
 (defn- reduce-buffer
   "Divide the stream into `buffer`-size chunks and fold the function over
   these."
-  ([f acc stream buffer] (reduce-buffer f acc stream buffer 0))
-  ([f acc stream buffer count]
-    (print-count count 100)
+  ([tick f acc stream buffer] (reduce-buffer tick f acc stream buffer 0))
+  ([tick f acc stream buffer count]
+    (tick count)
     (if-let [buffer (fill-buffer stream buffer)]
-      (recur f (f acc buffer) stream buffer (inc count))
+      (recur tick f (f acc buffer) stream buffer (inc count))
       acc)))
 
 (defn- reduce-dump
   "Reduce the database using the function `f`."
-  [f zero path n]
+  [tick f zero path n]
   (let [buffer (byte-array (repeat (triangle-size n) (byte 0)))]
     (with-open [in (BufferedInputStream. (FileInputStream. path))]
-      (reduce-buffer f zero in buffer))))
+      (reduce-buffer tick f zero in buffer))))
 
 (defn- map-buffer
   "Divide the stream into `buffer`-size chunks and map the function over
   these."
-  ([f stream buffer] (map-buffer f stream buffer 0))
-  ([f stream buffer count]
+  ([tick f stream buffer] (map-buffer f stream buffer 0))
+  ([tick f stream buffer count]
     (lazy-seq
-      (print-count count 100)
+      (tick count)
       (if-let [buffer (fill-buffer stream buffer)]
-        (cons (f buffer) (map-buffer f stream buffer (inc count))
+        (cons (f buffer) (map-buffer tick f stream buffer (inc count))
           nil)))))
 
 (defn- map-dump
   "Map over the database using the function `f`."
-  [f path n]
+  [tick f path n]
   (let [buffer (byte-array (repeat (triangle-size n) (byte 0)))]
     (with-open [in (BufferedInputStream. (FileInputStream. path))]
-      (map-buffer f in buffer))))
+      (map-buffer tick f in buffer))))
 
 ;; ## Histogram the pixel values
 
@@ -170,9 +170,9 @@ which reduces the search space needed to identify collisions.
 
 (defn hist-dump
   "Generate a histogram of the values (as unsigned bytes) in the database."
-  [path n]
+  [tick path n]
   (let [cs (triangle-size n)
-        hist (reduce-dump hist-buffer {} path cs)
+        hist (reduce-dump tick hist-buffer {} path cs)
         biggest (apply max (vals hist))
         scale (/ 60 biggest)]
     (println)
@@ -183,31 +183,11 @@ which reduces the search space needed to identify collisions.
 
 ;; ## Identify 'close' patterns
 ;;
-;; Locality-sentitive hashing identifies 'neighbours; pairs of neighbours
+;; Locality-sensitive hashing identifies 'neighbours; pairs of neighbours
 ;; are recorded; the process repeats until a pair is identified by a
 ;; sufficient number of hashes.
 
 ;; #### Sampling the pattern to generate a locality-sensitive hash.
-
-(def ^:private
-  ^{:doc "Scaling factor for the calculation below."}
-    EXPECTED_N 1e-4)
-
-(defn- estimate-samples
-  "Set the number of samples so that the expected number of pairs in the
-   database, for perfectly random mosaics, is N.  The low value of N needed
-   (above) reflects the regularity of the patterns, I think (even so, it
-   is surprising - perhaps there is an error here?)."
-; p^n-samples * size = N
-; p^n-samples = N/size
-; n-samples * log(p) = log(N) - log(size)
-; n-samples = (log(N) - log(size))/log(p)
-; p = 1 / max
-; n-samples = log(size/N)/log(max)
-  [n bits size]
-  (let [n-samples (int (/ (Math/log (/ size EXPECTED_N)) (Math/log (bit-shift-left 1 bits))))]
-    (println n-samples "samples")
-    n-samples))
 
 (defn- select-samples
   "Generate indices into the pattern for the samples.
@@ -232,29 +212,32 @@ which reduces the search space needed to identify collisions.
         (recur (dec ones) (if (> ones 0) (inc mask) mask) (dec all))))))
 
 (defn- select-hash
-  "Sample the pattern and mask the values."
-  ([samples mask buffer] (select-hash samples mask buffer []))
-  ([samples mask buffer hash]
+  "Loop over all samples, sampling the pattern, and masking the values.
+  Coallesce the bits used into a single long hash."
+  ([bits samples mask buffer] (select-hash bits samples mask buffer 0))
+  ([bits samples mask buffer hash]
     (let [samples (seq samples)]
       (if samples
-        (recur (rest samples) mask buffer
-          (conj hash (bit-and mask (nth buffer (first samples)))))
+        (recur bits (rest samples) mask buffer
+          (bit-or (bit-shift-left hash bits)
+            (bit-shift-right
+              (bit-and mask (nth buffer (first samples))) (- 8 bits))))
         hash))))
 
 (defn- make-hash
   "Construct a function that will be 'reduced' over the database, accumulating
-  the hashes for a single pass.
+  the hashes for all images in a single pass (with a single selection).
 
   The output here is a map from hash to all image indices with that hash
   (all 'neighbours')"
-  [n bits path random]
+  [n bits n-samples path random]
+  (assert (<= (* bits n-samples) 64))
   (let [mask (make-mask bits)
-        size (measure path n)
-        n-samples (estimate-samples n bits size)
-        samples (select-samples n-samples random (range n))]
+        from (vec (range (triangle-size n)))
+        samples (select-samples n-samples random from)]
     (println "hash of" bits "bits with" n-samples "samples:" samples)
     (fn [[i matches] buffer]
-      (let [hash (select-hash samples mask buffer)
+      (let [hash (select-hash bits samples mask buffer)
             matches (assoc matches hash (conj (get matches hash []) i))
             i (inc i)]
         [i matches]))))
@@ -277,9 +260,14 @@ which reduces the search space needed to identify collisions.
   "Iterate over the neighbour information, expanding the neighbours into
   pairs, and incrementing the count for each pair.
 
+  Detailed behaviour changes, depending on whether the iteration number
+  `iter` is within the `startup` period: initially all pairs are added
+  to the map, but once the startup period ends only existing pairs are
+  incremented.
+
   The map from pairs to count is a mutable, primitive type map for
   (memory and cpu) efficiency."
-  [size matches [_ hashes]]
+  [size matches [iter startup] [_ hashes]]
   (println (count hashes) "sets of neighbours")
   (doseq [nbrs (map (comp int-array sort) (vals hashes))]
     (let [n (count nbrs)]
@@ -289,9 +277,10 @@ which reduces the search space needed to identify collisions.
           (when (and (> n 1000) (zero? (mod i 100))) (println " ", i))
           (doseq [j (range i)]
             (let [pair (pack size (nth nbrs i) (nth nbrs j))]
-              (if-let [value (.get matches pair)]
-                (.put matches pair (byte (inc value)))
-                (.put matches pair (byte 0)))))))))
+              (let [value (.get matches pair)]
+                (if (zero? value)
+                  (when (< iter startup) (.put matches pair (byte 1)))
+                  (.put matches pair (byte (inc value)))))))))))
   matches)
 
 ;; #### Tying everything together.
@@ -301,50 +290,53 @@ which reduces the search space needed to identify collisions.
   [a b]
   (* -1 (compare a b)))
 
-(defn over
-  "Generate a predicate used to select values over some limit."
-  [lo]
-  (fn [entry] (>= (.getValue entry) lo)))
+(defn- complete-one
+  [size [iter startup] matches]
+  (println "iteration" iter "(startup" startup ") with" (.size matches) "matches")
+  (if (< iter (* 2 startup))
+    (do (println "too few iterations") nil)
+    (let [candidates (sort rev-compare (.values matches))
+          best (first candidates)
+          second (second candidates)]
+      (println "top match at" best "next at" second)
+      (if (not (> best (inc second)))
+        (do (println "not good enough") nil)
+        (let [top (fn [key] (= best (.get matches key)))
+              key (first (filter top (.keys matches)))]
+          (unpack size key))))))
 
-(defn stop-after
-  "Generate a predicate that assesses the pair-count information, stops
-  the search when a pair with `hi` or more counts is found, and returns
-  all pairs with `lo` or more counts."
-  [size lo hi]
-  (fn [matches]
-    (if (.isEmpty matches)
-      (do (println "no matches") nil)
-      (let [max (first (sort rev-compare (.values matches)))]
-        (println "matches at" max)
-        (if (< max hi)
-          (do (println "too few matches") nil)
-          (letfn [(over [key]
-                    (let [value (.get matches key)]
-                      (>= value lo)))
-                  (to-pair [key]
-                    (let [value (.get matches key)]
-                      [(unpack size key) value]))]
-            (map to-pair (filter over (.keys matches)))))))))
+(defn- complete-many
+  [size [iter startup] matches]
+  (println "iteration" iter "(startup" startup ") with" (.size matches) "matches")
+  (let [candidates (sort rev-compare (.values matches))
+        best (first candidates)]
+    (println "top match at" best)
+    (if (< iter (* 10 startup))
+      (do (println "too few iterations") nil)
+      (reverse
+        (sort-by second
+          (map
+            (fn [key] [(unpack size key) (.get matches key)])
+            (filter (fn [key] (> (.get matches key) (* 0.25 best)))
+              (.keys matches))))))))
 
-(defn group-dump
-  "The approach here uses a sample of 'pixel' values, with least significant
-   bits discarded, as a locality sensitive hash.  By repeating the hashing
-   multiple times, and counting how often the hash identifies particular
-   pairs of images, we can find the closest pairs.
-
-   Unfortunately the choice of mask, number of samples, and cut-off point
-   are hard to automate completely - parameters need 'tweaking' by hand
-   when used.
-
-   For poor choices of parameters, memory use is prohibitive (even in normal
-   use the implementation takes care to reduce memory and cpu use)."
-  ([path n bits [lo hi] seed]
-    (let [size (measure path n)
-          stop (stop-after size lo hi)]
-      (group-dump path n bits size stop (Random. seed) (TLongByteHashMap.))))
-  ([path n bits size stop random matches]
-    (if-let [results (stop matches)]
+(defn nearest-in-dump
+  ([tick path n bits n-samples startup seed]
+    (let [size (measure path n)]
+      (nearest-in-dump tick path n bits n-samples size [0 startup] (Random. seed) (TLongByteHashMap.))))
+  ([tick path n bits n-samples size [iter startup] random matches]
+    (if-let [results (complete-many size [iter startup] matches)]
       results
-      (recur path n bits size stop random
-        (collect size matches
-          (reduce-dump (make-hash n bits path random) [0 {}] path n))))))
+      (recur tick path n bits n-samples size [(inc iter) startup] random
+        (collect size matches [iter startup]
+          (reduce-dump
+            tick
+            (make-hash n bits n-samples path random)
+            [0 {}] path n))))))
+
+;; ## Measure fluctuations
+
+(defn random-box
+  [n size random]
+  (let [delta (- n)
+        x (.nextInt random)]))

@@ -233,7 +233,6 @@ the mosaic(s).
   (let [normalize (select-normalize options)]
     (key-case [:builder options]
       "rectangle" [(rectangle n) normalize]
-      "square" [(square n) normalize]
       "fourier" [(fourier n) normalize])))
 
 (defn select-render
@@ -286,7 +285,7 @@ the mosaic(s).
     ["--border-red" "Border red component (0-255)"]
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
-    ["--builder" "How image is built (rectangle, square, fourier)"]
+    ["--builder" "How image is built (rectangle, fourier)"]
     ["--normalize" "Image normalisation (histogram, sigmoid)"]
     ["--monochrome" "Greyscale images" :flag true]
     ["--raw" "Basic format, fixed hue (0-255)"]
