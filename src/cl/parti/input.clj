@@ -22,7 +22,7 @@ Manage input to the mosaic pipeline.
   [hash]
   (fn [text]
     (let [hash (. MessageDigest getInstance hash)]
-      (random (.digest hash (.getBytes text))))))
+      (random-bits (.digest hash (.getBytes text))))))
 
 (defn stream-hash
   "Hash the entire contents of the stream."
@@ -36,7 +36,7 @@ Manage input to the mosaic pipeline.
           (if (not= n -1)
             (do (.update hash buffer 0 n) (recur))
             (do (.close stream) hash))))
-      (random (.digest (copy-stream))))))
+      (random-bits (.digest (copy-stream))))))
 
 (defn hex-hash
   "*Not* a hash function, strictly.  This is used when the input is itself

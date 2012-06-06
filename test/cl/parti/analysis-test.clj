@@ -4,23 +4,29 @@
   (:use clojure.java.io))
 
 
-(deftest test-dump-8
-  (time (dump (print-tick 100) "/tmp/rectangle-8.dmp" 10000000 normalize-histogram rectangle 8 "b")))
-
-(deftest test-dump-7
-  (time (dump (print-tick 100) "/tmp/rectangle-7.dmp" 10000000 normalize-histogram rectangle 7 "c")))
-
 (defn top
   [in out prefix n bits n-samples startup]
   (let [best (nearest-in-dump (print-tick 1000) in n bits n-samples startup 1)]
     (with-open [w (writer out)]
       (doseq [[[a b] m] best] (.write w (str prefix a " " prefix b " " m "\n"))))))
 
-(deftest test-top-7
-  (time (top "/tmp/rectangle-7.dmp" "/tmp/rectangle-7.best" "c" 7 3 12 3)))
+(deftest test-dump-9
+  (time (dump (print-tick 100) "/tmp/rectangle-9-n.dmp" 10000000 normalize-histogram rectangle 9 "d")))
+
+(deftest test-top-9
+  (time (top "/tmp/rectangle-9-n.dmp" "/tmp/rectangle-9-n.best" "d" 9 3 12 3)))
+
+(deftest test-dump-8
+  (time (dump (print-tick 100) "/tmp/rectangle-8-n.dmp" 10000000 normalize-histogram rectangle 8 "b")))
 
 (deftest test-top-8
-  (time (top "/tmp/rectangle-8.dmp" "/tmp/rectangle-8.best" "b" 8 3 12 3)))
+  (time (top "/tmp/rectangle-8-n.dmp" "/tmp/rectangle-8-n.best" "b" 8 3 12 3)))
+
+(deftest test-dump-7
+  (time (dump (print-tick 100) "/tmp/rectangle-7-n.dmp" 10000000 normalize-histogram rectangle 7 "c")))
+
+(deftest test-top-7
+  (time (top "/tmp/rectangle-7-n.dmp" "/tmp/rectangle-7-n.best" "c" 7 3 12 3)))
 
 ;(deftest test-dump-20
 ;  (time (dump "/tmp/square-20.dmp" 1000000 square 20 ""))

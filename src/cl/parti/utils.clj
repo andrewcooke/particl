@@ -14,6 +14,7 @@ Various utilitiy functions.
   (println (apply str msg))
   (System/exit 1))
 
+
 (defn ?merge
   "Merge the contents of `extra` with `map`.  The result contains
   all the key-value pairs from `map`, plus those for additional keys
@@ -21,6 +22,7 @@ Various utilitiy functions.
   [map extra]
   (reduce (fn [map [k v]] (if (map k) map (assoc map k v)))
     map extra))
+
 
 (defn unsign-byte
   "Convert an signed byte (the Java native type) to an integer value
@@ -45,6 +47,7 @@ Various utilitiy functions.
           (- b 256)
           b)))
 
+
 (defn sgn
   "Return the sign of `x` (a value in [-1 1])."
   [x]
@@ -64,13 +67,14 @@ Various utilitiy functions.
   [hex]
   (Hex/encodeHexString hex))
 
+
 (defn flatten-1
   "Reduce nested lists once level."
   [list]
   (apply concat list))
 
 (defn map-rows
-  "The 2d mosaic is generally modelled as sequences of sequences.  This
+  "The 2D mosaic is generally modelled as sequences of sequences.  This
   defines a shape-preserving map over the values."
   [f rows]
   (for [row rows]

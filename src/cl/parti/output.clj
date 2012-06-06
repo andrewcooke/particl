@@ -65,8 +65,12 @@ Functions used in the output sections of the pipeline.
 ;; Convert the internal representation (2D sequence of floats) to HSL pixels.
 
 (def
-  ^{:doc "The strength of changes in luminosity, relative to changes in hue."}
-  LIGHTNESS 1)
+  ^{:doc ""}
+  LIGHTNESS 0.9)
+
+(def
+  ^{:doc ""}
+  DAZZLE 0.75)
 
 (defn- floats-to-hsl
   "Convert a mosaic (2D nested sequences) of normalized (-1 1) floats to
@@ -77,10 +81,10 @@ Functions used in the output sections of the pipeline.
   to that.  This approach correlates colour and lightness shifts, making the
   structure in the mosaic more likely to visible to those with restricted
   colour vision."
-  [mono lightness h-v-l hue rows-11]
+  [mono lightness dazzle h-v-l hue rows-11]
   (defn to-hsl [x]
     (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
-      [(if mono 0 (fold (+ hue x)))
+      [(if mono 0 (fold (+ hue (* dazzle x))))
        (if mono 0 1)
        (clip (+ 0.5 (* lightness h-v-l x)))]))
   (map-rows to-hsl rows-11))
@@ -140,7 +144,7 @@ Functions used in the output sections of the pipeline.
           [h-v-l state] (if raw [1 state] (rand-sign state))
           [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))
           mosaic (expand-mosaic n scale colour width
-        (floats-to-hsl mono LIGHTNESS h-v-l hue
+        (floats-to-hsl mono LIGHTNESS DAZZLE h-v-l hue
           (if (= 1 rotate) rows (rotate-rows n rows))))]
       [colour mosaic state])))
 
@@ -190,7 +194,7 @@ Functions used in the output sections of the pipeline.
   [n scale width]
   (let [cp (corner-pixels n scale width)]
     (fn [[pixels state] [x y]]
-      (let [[corner state] (rand-byte 4 state)]
+      (let [[corner state] (rand-bits 4 state)]
         [(cons (cp [x y] corner) pixels) state]))))
 
 (defn corners
@@ -213,9 +217,9 @@ Functions used in the output sections of the pipeline.
   [n scale width rate]
   (let [cp (corner-pixels n scale width)]
     (fn [[pixels state] [x y]]
-      (let [[hole state] (rand-byte rate state)]
+      (let [[hole state] (rand-bits (Math/abs rate) state)]
         [(cons
-           (if (zero? hole)
+           (if (= (zero? hole) (> rate 0))
              (concat
                (cp [x y] 3)
                (cp [(inc x) y] 2)
@@ -225,14 +229,22 @@ Functions used in the output sections of the pipeline.
            pixels) state]))))
 
 (defn holes
-  "Add random 'punch holes' to the image."
+  "Add random 'punch holes' to the image.
+
+  The `rate` parameter means the following:
+
+  * 0: disabled
+  * n: a random 'hole' once every n interstices, on average
+  * -ve: random holes everywhere, except random omissions every abs(n)."
   [n scale width rate]
   (fn [[bg mosaic state]]
-    (let [mosaic (to-vec-2d mosaic)
-          centres (for [x (range (dec n)) y (range (dec n))] [x y])
-          [pixels state]
-          (reduce (rand-hole n scale width rate) [nil state] centres)]
-      [(reduce (set-pixel bg) mosaic (flatten-1 pixels)) state])))
+    (if (zero? rate)
+      [bg mosaic state]
+      (let [mosaic (to-vec-2d mosaic)
+            centres (for [x (range (dec n)) y (range (dec n))] [x y])
+            [pixels state]
+            (reduce (rand-hole n scale width rate) [nil state] centres)]
+        [bg (reduce (set-pixel bg) mosaic (flatten-1 pixels)) state]))))
 
 (defn no-editor
   "A dummy editor function for when nothing is required."
@@ -265,7 +277,7 @@ Functions used in the output sections of the pipeline.
   20x20 mosaics (corresponding to the 'hash' style)."
   [path]
   (let [index (atom 0)]
-    (fn [[rows state]] ; TODO - why state here?
+    (fn [[bg rows state]]
       (when (and (= @index 1) (= -1 (.indexOf path "%d")))
         (printf "WARNING: Multiple output images but no '%%d' in --output\n"))
       (with-open [os (output-stream (format path @index))]

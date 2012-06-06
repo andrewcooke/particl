@@ -46,19 +46,59 @@ render function (`cl.parti.output`) will later convert these values to colours.
 
 ;; ## Generate random parameters
 
-(def ^:private
-  ^{:doc "Range over which values can be shifted in a single transformation."}
-  DELTA 127)
+;(defn- int16-symmetric
+;  "Select a random integer from [-n n]."
+;  [n state]
+;  (let [[r state] (rand-int16 (inc (* 2 n)) state)]
+;    [(- r n) state]))
 
-(defn- rand-range
-  "Generate a uniformly distributed pseudo-random integer in the range
-  `[-DELTA DELTA]`.
+(defn- centre-distance
+  "One plus the number of pixels between the given block (starting at `x`,
+  length `dx`) and the central pixel(s), when placed in a line of length `n`.
+  A block that overlaps the centre has distance 0."
+  [n]
+  (let [nlo (int (/ (dec n) 2))
+        nhi (int (/ n 2))]
+    (fn [x1 dx]
+      (let [x2 (dec (+ x1 dx))]
+        (cond
+          (and (>= x2 nlo) (<= x1 nhi)) 0
+          (< x2 nlo) (- nlo x2)
+          (> x1 nhi) (- x1 nhi)
+          :else (assert nil (str x1 " " x2 " " n " " nlo " " nhi)))))))
 
-  This value is used to give the strength of the shift applied to the
-  randomly selected square."
-  [state]
-  (let [[r state] (rand-byte (inc (* 2 DELTA)) state)]
-    [(- r DELTA) state]))
+(defn manhattan
+  "The 'Manhattan' distance (dx + dy) between a block and the mosaic centre."
+  [n]
+  (let [d (centre-distance n)]
+    (fn [[dx dy x y]]
+      (+ (d x dx) (d y dy)))))
+
+(defn manhattan-delta
+  "Calculate a 'delta' - the amount to shift the selected rectangle - by
+  selecting a random value from within a range defined by the distance
+  from the centre of the mosaic.
+
+  This fixes a weakness in an earlier scheme, which selected randomly
+  from a uniform range for all rectangles.  That gave images that varied
+  most in the centre of the image (where, on average, most rectangles
+  overlap).  By increasing the range towards the edge of the mosaic we
+  counter-balance that statistical tendency and so get a more even
+  distribution of 'noise' across the image, reducing the number of
+  collisions (ie. increasing the effective bit length)."
+  [n]
+  (let [m (manhattan n)]
+    (fn [location state]
+      (let [d (inc (m location))]
+        (rand-bits-symmetric d state)))))
+
+;(defn manhattan-delta
+;  [n]
+;  (let [m (manhattan n)]
+;    (fn [location state]
+;      (let [d (inc (m location))
+;            [delta state] (rand-sign state)]
+;        [(* d delta) state]))))
 
 (defn- parameters
   "Construct a lazy sequence of random values, taken from the functions
@@ -70,7 +110,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
   [gen-location gen-delta n state]
   (lazy-seq
     (let [[location state] (gen-location n state)
-          [delta state] (gen-delta state)]
+          [delta state] (gen-delta location state)]
       (cons [delta location state]
         (parameters gen-location gen-delta n state)))))
 
@@ -79,11 +119,10 @@ render function (`cl.parti.output`) will later convert these values to colours.
   distribution in the range [0 n) and the second in the range [0 (n-side)).
   This means that `side` and `side+offset` are both in [0 n).
 
-  The value of `side` is then incremented by 1 to give a non-zero square,
-  which `offset` will position on the diagonal."
+  The value of `side` is then incremented by 1 to give a non-zero value."
   [n state]
-  (let [[side state] (rand-byte n state)
-        [offset state] (rand-byte (- n side) state)]
+  (let [[side state] (rand-bits n state)
+        [offset state] (rand-bits (- n side) state)]
     [[(inc side) offset] state]))
 
 (defn rand-4
@@ -91,14 +130,14 @@ render function (`cl.parti.output`) will later convert these values to colours.
   the rectangle lies at least partly in the lower triangle (including the
   diagonal).
 
-  Details / ranges are as for `rand-square`."
+  Details / ranges are as for `rand-2`."
   [n state]
-    (let [[[dx x] state] (rand-2 n state)
-          [[dy y] state] (rand-2 n state)]
-      ; major bug here with (> y x)
-      ; x increases down, y increases to right; important triangle is
-      ; bottom-left.
-      (if (> y (+ x dx)) (recur n state) [[dx dy x y] state])))
+  (let [[[dx x] state] (rand-2 n state)
+        [[dy y] state] (rand-2 n state)]
+    ; major bug here with (> y x)
+    ; x increases down, y increases to right; important triangle is
+    ; bottom-left.
+    (if (> y (+ x dx)) (recur n state) [[dx dy x y] state])))
 
 ;; ## The transformation
 
@@ -156,7 +195,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
   [n]
   (fn [state]
     (let [[rows state]
-          (repeated-transform rand-4 rand-range shift-rectangle n (expt n 2) state)
-          norm (* NORM DELTA (expt n 0.8))]
+          (repeated-transform
+            rand-4 (manhattan-delta n) shift-rectangle n (expt n 2) state)
+          norm (* NORM (expt n 1.5))]
       [norm (reflect n rows) state])))
-

@@ -7,7 +7,10 @@
 ; compare against the test vectors in rfc36868
 
 (defn assert-vector [key nonce iv target]
-  (let [result (byte-array (take (count target) (stream-aes-ctr key nonce iv)))
+  (let [result
+        (byte-array
+          (map sign-byte
+            (take (count target) (stream-aes-ctr key nonce iv))))
         result (format-hex result)
         target (format-hex target)]
     (printf "target %s\n" target)
@@ -35,6 +38,43 @@
     (parse-hex "27777F3F4A1786F0")
     (parse-hex "C1CE4AAB9B2AFBDEC74F58E2E3D67CD85551B638CA786E21CD8346F1B2EE0E4C0593250C17553600A63DFECF562387E9")))
 
+; various details of bit-streams
+
+(deftest test-mask
+  (is (= 1 (get-mask 1 1)))
+  (is (= 255 (get-mask 8 8)))
+  (is (= 2 (get-mask 1 2)))
+  (is (= 254 (get-mask 7 8))))
+
+(deftest test-bit-table
+  (is (= 0 (nth bit-table 0)))
+  (is (= 1 (nth bit-table 1)))
+  (is (= 2 (nth bit-table 2)))
+  (is (= 2 (nth bit-table 3)))
+  (is (= 8 (nth bit-table 254)))
+  (is (= 8 (nth bit-table 255)))
+  (is (= 256 (count bit-table))))
+
+(deftest test-n-bits
+  (is (= 0 (n-bits 0)))
+  (is (= 1 (n-bits 1)))
+  (is (= 2 (n-bits 2)))
+  (is (= 2 (n-bits 3)))
+  (is (= 8 (n-bits 255)))
+  (is (= 9 (n-bits 256)))
+  (is (= 9 (n-bits 257))))
+
+(deftest test-stream-bits
+  (let [s0 (stream-bits [2r11110000 2r10101010])
+        [_ s4] (s0 4)
+        [_ s8] (s0 8)]
+    (is (= 0 (first (s0 0))))
+    (is (= 2r1 (first (s0 1))))
+    (is (= 2r111100 (first (s0 6))))
+    (is (= 2r1111000010 (first (s0 10))))
+    (is (= 2r1111000010101010 (first (s0 16))))
+    (is (= 2r00001 (first (s4 5))))
+    (is (= 2r101 (first (s8 3))))))
 
 ; expect a given byte to be repeated approx every 256 times,
 ; with an sd of 16.
@@ -62,13 +102,13 @@
     (is (< s-sd (* (+ 1 err) sd)))
     (is (> s-sd (* (- 1 err) sd)))))
 
-(println (take 32 (random (byte-array 64 (byte 0)))))
+(println (take 32 (random-bytes (byte-array 64 (byte 0)))))
 
 (deftest measure-repeat
-  (let [r (random (byte-array 1 (byte 1)))
+  (let [r (random-bytes (byte-array 1 (byte 1)))
         l (lengths r)]
     (assert-stats (take 1000 l) 256 256 0.1))
-  (let [r (random (byte-array 64 (byte 1)))
+  (let [r (random-bytes (byte-array 64 (byte 1)))
         l (lengths r)]
     (assert-stats (take 1000 l) 256 256 0.1)))
 
@@ -91,10 +131,10 @@
                 (byte-array
                   (for [i (range n-bits)]
                     (byte (if (= i index) 1 2))))]
-            [n-bits index (take 4 (random hash))]))
+            [n-bits index (take 4 (random-bytes hash))]))
         s (filter-dups #{} values)]
-;    (println values)
-;    (println s)
+    ;    (println values)
+    ;    (println s)
     (is (= (apply + sizes) (count s)))))
 
 (defn rand-stream [f state]
@@ -104,7 +144,7 @@
 
 (deftest test-rubho
   (doseq [n (range 12 256)]
-    (let [s (random (byte-array 1 (byte (bit-and n 127))))
+    (let [s (random-bytes (byte-array 1 (byte (bit-and n 127))))
           r (rand-stream (partial rand-byte n) s)]
       (assert-stats (take 10000 r) (/ (dec n) 2.0) (/ (dec n) (sqrt 12)) 0.1))))
 

@@ -57,19 +57,59 @@ want to access the key stream."}
     (let [block (.update cipher BLANK)]
       (cons block (stream-blocks cipher)))))
 
-(defn- stream-bytes
-  "Convert a stream of blocks to a stream of bytes.
+(defn- stream-unsigned-bytes
+  "Convert a stream of blocks to a stream of unsigned bytes.
 
   The first form re-calls with the head block and a zero offset.
 
   The second form recurses through the available bytes in the block and
   then re-calls with the remaining blocks."
-  ([blocks] (stream-bytes (first blocks) 0 (rest blocks)))
+  ([blocks] (stream-unsigned-bytes (first blocks) 0 (rest blocks)))
   ([block i blocks]
     (lazy-seq
       (if (= i BLOCK_SIZE)
-        (stream-bytes blocks)
-        (cons (nth block i) (stream-bytes block (inc i) blocks))))))
+        (stream-unsigned-bytes blocks)
+        (cons
+          (unsign-byte (nth block i))
+          (stream-unsigned-bytes block (inc i) blocks))))))
+
+(def mask-table
+  (object-array
+    (for [available (range 9)]
+      (int-array
+        (for [required (range (inc available))]
+          (let [mask (dec (bit-shift-left 1 required))
+                remaining (- available required)]
+            (bit-shift-left mask remaining)))))))
+
+(defn get-mask
+  [required available]
+  (nth (nth mask-table available) required))
+
+(defn- transfer-bits
+  [required value bits available]
+  (let [remaining (- available required)
+        value (bit-shift-left value required)
+        mask (get-mask required available)
+        extra (bit-shift-right (bit-and bits mask) remaining)]
+    (+ value extra)))
+
+(defn stream-bits
+  ([bytes] (stream-bits (first bytes) 8 (rest bytes)))
+  ([bits available bytes]
+    (fn [required]
+      (loop [req required
+             value 0
+             bits bits
+             avail available
+             bytes bytes]
+        (cond
+          (zero? req) [value (stream-bits bits avail bytes)]
+          (zero? avail) (recur req value (first bytes) 8 (rest bytes))
+          (<= req avail) (recur 0 (transfer-bits req value bits avail)
+                           bits (- avail req) bytes)
+          :else (recur (- req avail) (transfer-bits avail value bits avail)
+                  (first bytes) 8 (rest bytes)))))))
 
 (defn- init-ctrblk
   "Create a counter block with CTR set to 1 (lsb)."
@@ -84,7 +124,8 @@ want to access the key stream."}
           :else (byte 1))))))
 
 (defn stream-aes-ctr
-  "Generate a stream of bytes from the initial data, using AES in counter mode.
+  "Generate a stream of unsigned bytes from the initial data, using AES in
+  counter mode.
 
   This is tested against the three 128-bit test vectors in
   [RFC3686](http://www.faqs.org/rfcs/rfc3686.html) - the bytes returned
@@ -95,7 +136,7 @@ want to access the key stream."}
         ctrblk (init-ctrblk nonce iv)]
     (do
       (.init cipher Cipher/ENCRYPT_MODE key (IvParameterSpec. ctrblk))
-      (stream-bytes (stream-blocks cipher)))))
+      (stream-unsigned-bytes (stream-blocks cipher)))))
 
 ;; ## Extension to widen key space
 
@@ -140,7 +181,7 @@ want to access the key stream."}
           streams (map rest streams)]
       (cons (apply bit-xor b) (parallel streams)))))
 
-(defn random
+(defn random-bytes
   "Create a stream of random bytes, merging sufficient parallel streams
   to consume all the input data as an initial seed."
   [data]
@@ -151,75 +192,131 @@ want to access the key stream."}
         (single data 0)
         (parallel (for [i (range n)] (single data i)))))))
 
-;; ## Extract values from the random stream
+(defn random-bits
+  [data]
+  (stream-bits (random-bytes data)))
+
+
+;; ## Extract values from the random byte stream
 ;;
 ;; All the extraction functions return a value and a new stream.  The
 ;; new stream must be used in future calls (using the old stream will
 ;; not trigger an error, but will return the same value as the previous
 ;; call).
 
-(defn rand-signed-byte
-  "Generate a pseudo-random, uniformly distributed, signed byte in the
-  range [-128 127]."
-  [state]
-  (let [[r & state] state]
-    [r state]))
+;(defn rand-signed-byte
+;  "Generate a pseudo-random, uniformly distributed, signed byte in the
+;  range [-128 127]."
+;  [state]
+;  (let [[r & state] state]
+;    [r state]))
+;
+;(defn rand-unsigned-byte
+;  "Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
+;  range [0 255]."
+;  [state]
+;  (let [[r state] (rand-signed-byte state)]
+;    [(unsign-byte r) state]))
+;
+;(defn rand-real
+;  "Generate a pseudo-random, uniformly distributed real in the range [0 1).
+;  Because this is calculated from a single byte only 256 distinct values are
+;  possible."
+;  [n state]
+;  (let [[r state] (rand-unsigned-byte state)]
+;    [(* n (/ r 256.0)) state]))
+;
+;(defn- bitmask
+;  "A mask that covers the significant bits of the input, `n`."
+;  ([n] (if (< n 2) n (bitmask (bit-shift-right n 1) 1)))
+;  ([n m] (if (= 0 n) m (recur (bit-shift-right n 1) (inc (* 2 m))))))
+;
+;(defn rand-byte
+;  "Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
+;  range [0 n).  This signature matches the system `rand-int` routine
+;  (returning values in a half-open range).
+;
+;  The implementation masks and discards, rather than using modular division,
+;  to avoid bias."
+;  [n state]
+;  (assert (> n 0))
+;  (assert (< n 257))
+;  (let [[r state] (rand-unsigned-byte state)
+;        m (bitmask (dec n))
+;        r (bit-and r m)]
+;    (if (< r n) [r state] (recur n state))))
+;
+;(defn rand-sign
+;  "Generate a pseudo-random, unbiased choice between 1 and -1."
+;  [state]
+;  (let [[r state] (rand-byte 2 state)]
+;    [(if (= 1 r) r -1) state]))
+;
+;(defn rand-bool
+;  "Generate a pseudo-random 'boolean' value (`nil` for false)."
+;  [state]
+;  (let [[r state] (rand-byte 2 state)]
+;    [(if (= 1 r) 1 nil) state]))
+;
+;(defn rand-int16
+;  "Similar to `rand-byte`, but generating a 16 bit value."
+;  [n state]
+;  (assert (> n 0))
+;  (assert (< n 65537))
+;  (let [[r1 state] (rand-unsigned-byte state)
+;        [r2 state] (rand-unsigned-byte state)
+;        r (+ r1 (* 256 r2))
+;        m (bitmask (dec n))
+;        r (bit-and r m)]
+;    (if (< r n) [r state] (recur n state))))
 
-(defn rand-unsigned-byte
-  "Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
-  range [0 255]."
+
+;; ## Extract values from the random bit stream
+;;
+;; All the extraction functions return a value and a new stream.  The
+;; new stream must be used in future calls (using the old stream will
+;; not trigger an error, but will return the same value as the previous
+;; call).
+
+(def bit-table
+  (int-array
+    (flatten
+      (cons 0
+        (for [i (range 8)]
+          (repeat (bit-shift-left 1 i) (inc i)))))))
+
+(defn n-bits
+  ([n] (n-bits n 0))
+  ([n acc]
+    (cond
+      (zero? n) acc
+      (< n 256) (+ acc (nth bit-table n))
+      :else (recur (/ n 256) (+ acc 8)))))
+
+; exclusive
+(defn rand-bits
+  [maximum state]
+  (let [size (n-bits (dec maximum))]
+    (loop [state state]
+      (let [[r state] (state size)]
+        (if (< r maximum) [r state] (recur state))))))
+
+; inclusive
+(defn rand-bits-symmetric
+  [maximum state]
+  (let [[r state] (rand-bits (inc (* 2 maximum)) state)]
+    [(- r maximum) state]))
+
+(defn rand-sign
+  "Generate a pseudo-random, unbiased choice between 1 and -1."
   [state]
-  (let [[r state] (rand-signed-byte state)]
-    [(unsign-byte r) state]))
+  (let [[r state] (rand-bits 1 state)]
+    [(if (= 1 r) r -1) state]))
 
 (defn rand-real
   "Generate a pseudo-random, uniformly distributed real in the range [0 1).
   Because this is calculated from a single byte only 256 distinct values are
   possible."
   [n state]
-  (let [[r state] (rand-unsigned-byte state)]
+  (let [[r state] (rand-bits 8 state)]
     [(* n (/ r 256.0)) state]))
-
-(defn- bitmask
-  "A mask that covers the significant bits of the input, `n`."
-  ([n] (if (< n 2) n (bitmask (bit-shift-right n 1) 1)))
-  ([n m] (if (= 0 n) m (recur (bit-shift-right n 1) (inc (* 2 m))))))
-
-(defn rand-byte
-  "Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
-  range [0 n).  This signature matches the system `rand-int` routine
-  (returning values in a half-open range).
-
-  The implementation masks and discards, rather than using modular division,
-  to avoid bias."
-  [n state]
-  (assert (> n 0))
-  (assert (< n 257))
-  (let [[r state] (rand-unsigned-byte state)
-        m (bitmask (dec n))
-        r (bit-and r m)]
-    (if (< r n) [r state] (recur n state))))
-
-(defn rand-sign
-  "Generate a pseudo-random, unbiased choice between 1 and -1."
-  [state]
-  (let [[r state] (rand-byte 2 state)]
-    [(if (= 1 r) r -1) state]))
-
-(defn rand-bool
-  "Generate a pseudo-random 'boolean' value (`nil` for false)."
-  [state]
-  (let [[r state] (rand-byte 2 state)]
-    [(if (= 1 r) 1 nil) state]))
-
-(defn rand-int16
-  "Similar to `rand-byte`, but generating a 16 bit value."
-  [n state]
-  (assert (> n 0))
-  (assert (< n 65537))
-  (let [[r1 state] (rand-unsigned-byte state)
-        [r2 state] (rand-unsigned-byte state)
-        r (+ r1 (* 256 r2))
-        m (bitmask (dec n))
-        r (bit-and r m)]
-    (if (< r n) [r state] (recur n state))))

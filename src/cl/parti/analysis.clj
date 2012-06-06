@@ -334,9 +334,3 @@ which reduces the search space needed to identify collisions.
             (make-hash n bits n-samples path random)
             [0 {}] path n))))))
 
-;; ## Measure fluctuations
-
-(defn random-box
-  [n size random]
-  (let [delta (- n)
-        x (.nextInt random)]))

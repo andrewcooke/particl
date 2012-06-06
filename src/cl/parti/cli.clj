@@ -81,7 +81,7 @@ the mosaic(s).
 (defn convert-int
   "Convert all numerical options to integers."
   [options]
-  (let [names #{:tile-number :tile-size :border-width :raw }]
+  (let [names #{:tile-number :tile-size :border-width :raw :holes}]
     (apply merge
       (for [[k v] options]
         {k (if (and v (names k)) (parse-int v k) v)}))))
@@ -108,7 +108,7 @@ the mosaic(s).
   "Validate that the rate for holes is within a reasonable range."
   [options]
   (when-let [n (:holes options)]
-    (assert-range n 1 100 "--holes"))
+    (assert-range n -100 100 "--holes"))
   options)
 
 ;; Provide a default style, based on the input type.  If we are hashing
@@ -120,14 +120,19 @@ the mosaic(s).
   :else {:style "hash"})
 
 (def ^:private
+  ^{:doc "Common defaults for all styles"}
+  BASE {:builder "rectangle" :holes 0})
+
+(def ^:private
   ^{:doc "A pre-defined style for user icons.  Simple and colourful."}
-  USER {:tile-number 5 :tile-size 20 :border-colour "white" :border-width 3
-        :hash-algorithm "MD5" :builder "rectangle" :normalize "sigmoid"})
+  USER (?merge {:tile-number 5 :tile-size 20 :border-colour "white"
+                :border-width 3 :hash-algorithm "MD5" :normalize "sigmoid"}
+         BASE))
 
 (def ^:private
   ^{:doc "The base style for cryptographic data hashes."}
-  BASE_HASH {:tile-number 20 :border-colour "black" :border-width 1
-             :builder "rectangle" :normalize "histogram"})
+  BASE_HASH (?merge {:tile-number 20 :border-colour "black" :border-width 1
+                     :normalize "histogram"} BASE))
 
 (def ^:private
   ^{:doc "A pre-defined style for moderate security."}
@@ -246,7 +251,7 @@ the mosaic(s).
         raw (:raw options)
         rate (:holes options)]
     [(render-floats n scale colour width mono raw)
-     (if rate (holes n scale width rate) no-editor)]))
+     (holes n scale width rate)]))
 
 (defn select-display
   "The 'display' function presents the HSL pixels to the user as a concrete
@@ -287,9 +292,9 @@ the mosaic(s).
     ["--border-blue" "Border blue component (0-255)"]
     ["--builder" "How image is built (rectangle, fourier)"]
     ["--normalize" "Image normalisation (histogram, sigmoid)"]
-    ["--monochrome" "Greyscale images" :flag true]
+    ["--grey" "Greyscale images" :flag true]
     ["--raw" "Basic format, fixed hue (0-255)"]
-    ["--holes" "Add holes of given density (1-100)"]
+    ["--holes" "Add holes of given density (-100-100)"]
     ["-a" "--hash-algorithm" "The hash to use (SHA-512, etc)"]
     ["-h" "--help" "Display help" :flag true]
     ["-v" "--verbose" "Additional output" :flag true])]
