@@ -4,6 +4,12 @@ Achitecture
 
 - Isolates aesthetics from maths
 
+Image Algorithm
+---------------
+
+Hash Algorithm
+--------------
+
 Hash Size
 ---------
 

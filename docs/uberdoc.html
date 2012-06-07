@@ -3455,13 +3455,16 @@ design, suitable for identifying users.  Otherwise (ie when hashing files)
 we select the 'hash' style, which is more secure (contains more detail).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn-defaults [set-style-1 :input-type ]
   &quot;word&quot; {:style &quot;user&quot;}
-  :else {:style &quot;hash&quot;})</pre></td></tr><tr><td class="docs"><p>A pre-defined style for user icons.  Simple and colourful.</p>
+  :else {:style &quot;hash&quot;})</pre></td></tr><tr><td class="docs"><p>Common defaults for all styles</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
-  USER {:tile-number 5 :tile-size 20 :border-colour &quot;white&quot; :border-width 3
-        :hash-algorithm &quot;MD5&quot; :builder &quot;rectangle&quot; :normalize &quot;sigmoid&quot;})</pre></td></tr><tr><td class="docs"><p>The base style for cryptographic data hashes.</p>
+  BASE {:builder &quot;rectangle&quot; :holes 0})</pre></td></tr><tr><td class="docs"><p>A pre-defined style for user icons.  Simple and colourful.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
-  BASE_HASH {:tile-number 20 :border-colour &quot;black&quot; :border-width 1
-             :builder &quot;rectangle&quot; :normalize &quot;histogram&quot;})</pre></td></tr><tr><td class="docs"><p>A pre-defined style for moderate security.</p>
+  USER (?merge {:tile-number 5 :tile-size 20 :border-colour &quot;white&quot;
+                :border-width 3 :hash-algorithm &quot;MD5&quot; :normalize &quot;sigmoid&quot;}
+         BASE))</pre></td></tr><tr><td class="docs"><p>The base style for cryptographic data hashes.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private
+  BASE_HASH (?merge {:tile-number 20 :border-colour &quot;black&quot; :border-width 1
+                     :normalize &quot;histogram&quot;} BASE))</pre></td></tr><tr><td class="docs"><p>A pre-defined style for moderate security.</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
   HASH_100 (?merge {:tile-size 4 :hash-algorithm &quot;SHA-256&quot;} BASE_HASH))</pre></td></tr><tr><td class="docs"><p>A pre-defined style for higher security (at the cost of ease of use).</p>
 </td><td class="codes"><pre class="brush: clojure">(def ^:private
@@ -3635,11 +3638,12 @@ render function (<code>cl.parti.output</code>) will later convert these values t
   cl.parti.diagonal
   (:use (cl.parti random))
   (:use clojure.math.numeric-tower))</pre></td></tr><tr><td class="docs"><h2>Generate random parameters</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Select a random integer from [-n n].</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- int16-symmetric
-  [n state]
-  (let [[r state] (rand-int16 (inc (* 2 n)) state)]
-    [(- r n) state]))</pre></td></tr><tr><td class="docs"><p>One plus the number of pixels between the given block (starting at <code>x</code>,
+</td><td class="codes"></td></tr><tr><td class="docs"><p>(defn- int16-symmetric
+ "Select a random integer from [-n n]."
+ [n state]
+ (let [[r state] (rand-int16 (inc (* 2 n)) state)]
+   [(- r n) state]))</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>One plus the number of pixels between the given block (starting at <code>x</code>,
   length <code>dx</code>) and the central pixel(s), when placed in a line of length <code>n</code>.
   A block that overlaps the centre has distance 0.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- centre-distance
@@ -3673,7 +3677,14 @@ render function (<code>cl.parti.output</code>) will later convert these values t
   (let [m (manhattan n)]
     (fn [location state]
       (let [d (inc (m location))]
-        (int16-symmetric d state)))))</pre></td></tr><tr><td class="docs"><p>Construct a lazy sequence of random values, taken from the functions
+        (rand-bits-symmetric d state)))))</pre></td></tr><tr><td class="docs"><p>(defn manhattan-delta
+ [n]
+ (let [m (manhattan n)]
+   (fn [location state]
+     (let [d (inc (m location))
+           [delta state] (rand-sign state)]
+       [(* d delta) state]))))</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Construct a lazy sequence of random values, taken from the functions
   above.  This provides the data for an arbitrary number of transformations.</p>
 
 <p>  <code>state</code> is available at each step so that the latest state can be
@@ -3692,8 +3703,8 @@ render function (<code>cl.parti.output</code>) will later convert these values t
 <p>  The value of <code>side</code> is then incremented by 1 to give a non-zero value.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- rand-2
   [n state]
-  (let [[side state] (rand-byte n state)
-        [offset state] (rand-byte (- n side) state)]
+  (let [[side state] (rand-bits n state)
+        [offset state] (rand-bits (- n side) state)]
     [[(inc side) offset] state]))</pre></td></tr><tr><td class="docs"><p>Generate four values - the sides and offset of a rectangle - so that
   the rectangle lies at least partly in the lower triangle (including the
   diagonal).</p>
@@ -3870,7 +3881,7 @@ of bytes.</p>
   [hash]
   (fn [text]
     (let [hash (. MessageDigest getInstance hash)]
-      (random (.digest hash (.getBytes text))))))</pre></td></tr><tr><td class="docs"><p>Hash the entire contents of the stream.</p>
+      (random-bits (.digest hash (.getBytes text))))))</pre></td></tr><tr><td class="docs"><p>Hash the entire contents of the stream.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn stream-hash
   [hash]
   (fn [stream]
@@ -3882,7 +3893,7 @@ of bytes.</p>
           (if (not= n -1)
             (do (.update hash buffer 0 n) (recur))
             (do (.close stream) hash))))
-      (random (.digest (copy-stream))))))</pre></td></tr><tr><td class="docs"><p><em>Not</em> a hash function, strictly.  This is used when the input is itself
+      (random-bits (.digest (copy-stream))))))</pre></td></tr><tr><td class="docs"><p><em>Not</em> a hash function, strictly.  This is used when the input is itself
   a hash value (calculated externally).  The text is assumed to be a
   hexadecimal value and is converted to the equivalent array of bytes.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn hex-hash
@@ -4096,7 +4107,7 @@ interact correctly, but are currently consistent for each stage.</p>
   [n scale width]
   (let [cp (corner-pixels n scale width)]
     (fn [[pixels state] [x y]]
-      (let [[corner state] (rand-byte 4 state)]
+      (let [[corner state] (rand-bits 4 state)]
         [(cons (cp [x y] corner) pixels) state]))))</pre></td></tr><tr><td class="docs"><p>Mark a random corner of each tile.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn corners
   [n scale width]
@@ -4114,7 +4125,7 @@ interact correctly, but are currently consistent for each stage.</p>
   [n scale width rate]
   (let [cp (corner-pixels n scale width)]
     (fn [[pixels state] [x y]]
-      (let [[hole state] (rand-byte (Math/abs rate) state)]
+      (let [[hole state] (rand-bits (Math/abs rate) state)]
         [(cons
            (if (= (zero? hole) (&gt; rate 0))
              (concat
@@ -4248,6 +4259,8 @@ cipher in counter mode should be appropriate.  However, standard Java only
 supports block ciphers up to 128 bit keys.  To extend the key space multiple
 ciphers are run in parallel; their results are combined using xor.</p>
 
+<p>Byte and block streams are lazy sequences; the bit stream is a function.</p>
+
 <p><em>IMPORTANT</em> - The approach and code here need review by someone more
 knowledgeable than me.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
@@ -4266,7 +4279,121 @@ knowledgeable than me.</p>
 (def ^:private IV_SIZE 8)
 (def ^:private CTR_SIZE 4)
 (def ^:private KEY_SIZE 16)</pre></td></tr><tr><td class="docs"><p>The hash used for nonce and IV.</p>
-</td><td class="codes"><pre class="brush: clojure">(def ^:private  HASH &quot;SHA-1&quot;)</pre></td></tr><tr><td class="docs"><h2>Basic counter mode operation</h2>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private  HASH &quot;SHA-1&quot;)</pre></td></tr><tr><td class="docs"><h2>Bit stream</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>A table of binary masks to select <code>required</code> bits from the most significant
+  (leftmost) bits of a byte whose least significant <code>available</code> bits are
+  valid.</p>
+</td><td class="codes"><pre class="brush: clojure">(def mask-table
+  (object-array
+    (for [available (range 9)]
+      (int-array
+        (for [required (range (inc available))]
+          (let [mask (dec (bit-shift-left 1 required))
+                remaining (- available required)]
+            (bit-shift-left mask remaining)))))))</pre></td></tr><tr><td class="docs"><p>Simplify access to <code>mask-table</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn get-mask
+  [required available]
+  (nth (nth mask-table available) required))</pre></td></tr><tr><td class="docs"><p>Append the leftmost <code>required</code> bits from <code>bits</code> to <code>value</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- transfer-bits
+  [required value bits available]
+  (let [remaining (- available required)
+        value (bit-shift-left value required)
+        mask (get-mask required available)
+        extra (bit-shift-right (bit-and bits mask) remaining)]
+    (+ value extra)))</pre></td></tr><tr><td class="docs"><p>The byte stream is converted to bits in the order expected when displayed
+  from left to right.  So the blocks are converted in the order they are
+  generated; for each block the bytes are taken in array index order; for
+  each byte the buts are taken from most to least significant bit.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn stream-bits
+  ([bytes] (stream-bits (first bytes) 8 (rest bytes)))
+  ([bits available bytes]
+    (fn [required]
+      (loop [req required
+             value 0
+             bits bits
+             avail available
+             bytes bytes]
+        (cond
+          (zero? req) [value (stream-bits bits avail bytes)]
+          (zero? avail) (recur req value (first bytes) 8 (rest bytes))
+          (&lt;= req avail) (recur 0 (transfer-bits req value bits avail)
+                           bits (- avail req) bytes)
+          :else (recur (- req avail) (transfer-bits avail value bits avail)
+                  (first bytes) 8 (rest bytes)))))))</pre></td></tr><tr><td class="docs"><h4>Extract values</h4>
+
+<p>All the extraction functions return a value and a new stream.  The
+new stream must be used in future calls (using the old stream will
+not trigger an error, but will return the same value as the previous
+call).</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>A lookup table for the number of bits required to
+represent an unsigned byte.  Index 0 is provided to simplify indexing, but
+has a meaningless value.</p>
+</td><td class="codes"><pre class="brush: clojure">(def ^:private 
+  bit-table
+  (int-array
+    (flatten
+      (cons 0
+        (for [i (range 8)]
+          (repeat (bit-shift-left 1 i) (inc i)))))))</pre></td></tr><tr><td class="docs"><p>Return the number of bits necessary to represent <code>n</code>.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn
+  ^{:doc 
+    :test #(do
+             (assert (= 0 (n-bits 0)))
+             (assert (= 1 (n-bits 1)))
+             (assert (= 2 (n-bits 2)))
+             (assert (= 2 (n-bits 3)))
+             (assert (= 8 (n-bits 255)))
+             (assert (= 9 (n-bits 256)))
+             (assert (= 9 (n-bits 257))))}
+  n-bits
+  ([n] (n-bits n 0))
+  ([n acc]
+    (cond
+      (zero? n) acc
+      (&lt; n 256) (+ acc (nth bit-table n))
+      :else (recur (/ n 256) (+ acc 8)))))</pre></td></tr><tr><td class="docs"><p>Similar to <code>rand-int</code>, returns a pseudo-random value from the semi-open
+  [0 maximum).</p>
+
+<p>  The minimum number of bits necessary to represent the largest return
+  value are taken from the bit stream.  If this is less than <code>maximum</code>
+  then it is returned, otherwise it is discarded and the process repeated.
+  This gives an unbiased, uniformly distributed value, assuming that the
+  bit stream itself is unbiased.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn rand-bits
+  [maximum state]
+  (let [size (n-bits (dec maximum))]
+    (loop [state state]
+      (let [[r state] (state size)]
+        (if (&lt; r maximum) [r state] (recur state))))))</pre></td></tr><tr><td class="docs"><p>Return a pseudo-random value from [-maximum maxiumum].</p>
+</td><td class="codes"><pre class="brush: clojure">(defn rand-bits-symmetric
+  [maximum state]
+  (let [[r state] (rand-bits (inc (* 2 maximum)) state)]
+    [(- r maximum) state]))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random, unbiased choice between 1 and -1.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn rand-sign
+  [state]
+  (let [[r state] (rand-bits 1 state)]
+    [(if (= 1 r) r -1) state]))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random, uniformly distributed real in the range [0 1).
+  Because this is calculated from a single byte only 256 distinct values are
+  possible.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn rand-real
+  [n state]
+  (let [[r state] (rand-bits 8 state)]
+    [(* n (/ r 256.0)) state]))</pre></td></tr><tr><td class="docs"><h2>Byte stream</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Convert a stream of blocks to a stream of unsigned bytes.</p>
+
+<p>  The first form re-calls with the head block and a zero offset.</p>
+
+<p>  The second form recurses through the available bytes in the block and
+  then re-calls with the remaining blocks.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn- stream-unsigned-bytes
+  ([blocks] (stream-unsigned-bytes (first blocks) 0 (rest blocks)))
+  ([block i blocks]
+    (lazy-seq
+      (if (= i BLOCK_SIZE)
+        (stream-unsigned-bytes blocks)
+        (cons
+          (unsign-byte (nth block i))
+          (stream-unsigned-bytes block (inc i) blocks))))))</pre></td></tr><tr><td class="docs"><h2>Block stream (Counter mode cipher)</h2>
 
 <p>The general approach follows
 <a href="http://www.faqs.org/rfcs/rfc3686.html">RFC3686</a>, except that Java
@@ -4281,19 +4408,7 @@ want to access the key stream.</p>
   [cipher]
   (lazy-seq
     (let [block (.update cipher BLANK)]
-      (cons block (stream-blocks cipher)))))</pre></td></tr><tr><td class="docs"><p>Convert a stream of blocks to a stream of bytes.</p>
-
-<p>  The first form re-calls with the head block and a zero offset.</p>
-
-<p>  The second form recurses through the available bytes in the block and
-  then re-calls with the remaining blocks.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- stream-bytes
-  ([blocks] (stream-bytes (first blocks) 0 (rest blocks)))
-  ([block i blocks]
-    (lazy-seq
-      (if (= i BLOCK_SIZE)
-        (stream-bytes blocks)
-        (cons (nth block i) (stream-bytes block (inc i) blocks))))))</pre></td></tr><tr><td class="docs"><p>Create a counter block with CTR set to 1 (lsb).</p>
+      (cons block (stream-blocks cipher)))))</pre></td></tr><tr><td class="docs"><p>Create a counter block with CTR set to 1 (lsb).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- init-ctrblk
   [nonce iv]
   (byte-array
@@ -4303,7 +4418,8 @@ want to access the key stream.</p>
           (&lt; i NONCE_SIZE) (nth nonce i)
           (&lt; j IV_SIZE) (nth iv j)
           (not= i (dec BLOCK_SIZE)) (byte 0)
-          :else (byte 1))))))</pre></td></tr><tr><td class="docs"><p>Generate a stream of bytes from the initial data, using AES in counter mode.</p>
+          :else (byte 1))))))</pre></td></tr><tr><td class="docs"><p>Generate a stream of unsigned bytes from the initial data, using AES in
+  counter mode.</p>
 
 <p>  This is tested against the three 128-bit test vectors in
   <a href="http://www.faqs.org/rfcs/rfc3686.html">RFC3686</a> - the bytes returned
@@ -4315,7 +4431,7 @@ want to access the key stream.</p>
         ctrblk (init-ctrblk nonce iv)]
     (do
       (.init cipher Cipher/ENCRYPT_MODE key (IvParameterSpec. ctrblk))
-      (stream-bytes (stream-blocks cipher)))))</pre></td></tr><tr><td class="docs"><h2>Extension to widen key space</h2>
+      (stream-unsigned-bytes (stream-blocks cipher)))))</pre></td></tr><tr><td class="docs"><h4>Extension to widen key space</h4>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Extract a sub-array of bytes from the given data.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn- extract-bytes
   [data start length]
@@ -4349,70 +4465,18 @@ want to access the key stream.</p>
           streams (map rest streams)]
       (cons (apply bit-xor b) (parallel streams)))))</pre></td></tr><tr><td class="docs"><p>Create a stream of random bytes, merging sufficient parallel streams
   to consume all the input data as an initial seed.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn random
+</td><td class="codes"><pre class="brush: clojure">(defn random-bytes
   [data]
   (let [len (count data)]
     (assert (&gt; len 0) &quot;No data to seed random stream&quot;)
     (let [n (int (/ (+ (dec KEY_SIZE) len) KEY_SIZE))]
       (if (= 1 n)
         (single data 0)
-        (parallel (for [i (range n)] (single data i)))))))</pre></td></tr><tr><td class="docs"><h2>Extract values from the random stream</h2>
-
-<p>All the extraction functions return a value and a new stream.  The
-new stream must be used in future calls (using the old stream will
-not trigger an error, but will return the same value as the previous
-call).</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Generate a pseudo-random, uniformly distributed, signed byte in the
-  range [-128 127].</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-signed-byte
-  [state]
-  (let [[r &amp; state] state]
-    [r state]))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
-  range [0 255].</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-unsigned-byte
-  [state]
-  (let [[r state] (rand-signed-byte state)]
-    [(unsign-byte r) state]))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random, uniformly distributed real in the range [0 1).
-  Because this is calculated from a single byte only 256 distinct values are
-  possible.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-real
-  [n state]
-  (let [[r state] (rand-unsigned-byte state)]
-    [(* n (/ r 256.0)) state]))</pre></td></tr><tr><td class="docs"><p>A mask that covers the significant bits of the input, <code>n</code>.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn- bitmask
-  ([n] (if (&lt; n 2) n (bitmask (bit-shift-right n 1) 1)))
-  ([n m] (if (= 0 n) m (recur (bit-shift-right n 1) (inc (* 2 m))))))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
-  range [0 n).  This signature matches the system <code>rand-int</code> routine
-  (returning values in a half-open range).</p>
-
-<p>  The implementation masks and discards, rather than using modular division,
-  to avoid bias.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-byte
-  [n state]
-  (assert (&gt; n 0))
-  (assert (&lt; n 257))
-  (let [[r state] (rand-unsigned-byte state)
-        m (bitmask (dec n))
-        r (bit-and r m)]
-    (if (&lt; r n) [r state] (recur n state))))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random, unbiased choice between 1 and -1.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-sign
-  [state]
-  (let [[r state] (rand-byte 2 state)]
-    [(if (= 1 r) r -1) state]))</pre></td></tr><tr><td class="docs"><p>Generate a pseudo-random 'boolean' value (<code>nil</code> for false).</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-bool
-  [state]
-  (let [[r state] (rand-byte 2 state)]
-    [(if (= 1 r) 1 nil) state]))</pre></td></tr><tr><td class="docs"><p>Similar to <code>rand-byte</code>, but generating a 16 bit value.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-int16
-  [n state]
-  (assert (&gt; n 0))
-  (assert (&lt; n 65537))
-  (let [[r1 state] (rand-unsigned-byte state)
-        [r2 state] (rand-unsigned-byte state)
-        r (+ r1 (* 256 r2))
-        m (bitmask (dec n))
-        r (bit-and r m)]
-    (if (&lt; r n) [r state] (recur n state))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.utils" name="cl.parti.utils"><h1 class="project-name">cl.parti.utils</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Various utilitiy functions.</p>
+        (parallel (for [i (range n)] (single data i)))))))</pre></td></tr><tr><td class="docs"><h4>Main interface</h4>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Create a stream of random bits from the given data.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn random-bits
+  [data]
+  (stream-bits (random-bytes data)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#cl.parti.utils" name="cl.parti.utils"><h1 class="project-name">cl.parti.utils</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Various utilitiy functions.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns ^{:doc 
       :author &quot;andrew@acooke.org&quot;}
   cl.parti.utils

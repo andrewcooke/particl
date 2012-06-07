@@ -12,6 +12,8 @@ cipher in counter mode should be appropriate.  However, standard Java only
 supports block ciphers up to 128 bit keys.  To extend the key space multiple
 ciphers are run in parallel; their results are combined using xor.
 
+Byte and block streams are lazy sequences; the bit stream is a function.
+
 *IMPORTANT* - The approach and code here need review by someone more
 knowledgeable than me.
 
@@ -38,24 +40,127 @@ knowledgeable than me.
 (def ^:private ^{:doc "The hash used for nonce and IV."} HASH "SHA-1")
 
 
-;; ## Basic counter mode operation
+;; ## Bit stream
+
+(def mask-table
+  "A table of binary masks to select `required` bits from the most significant
+  (leftmost) bits of a byte whose least significant `available` bits are
+  valid."
+  (object-array
+    (for [available (range 9)]
+      (int-array
+        (for [required (range (inc available))]
+          (let [mask (dec (bit-shift-left 1 required))
+                remaining (- available required)]
+            (bit-shift-left mask remaining)))))))
+
+(defn get-mask
+  "Simplify access to `mask-table`."
+  [required available]
+  (nth (nth mask-table available) required))
+
+(defn- transfer-bits
+  "Append the leftmost `required` bits from `bits` to `value`."
+  [required value bits available]
+  (let [remaining (- available required)
+        value (bit-shift-left value required)
+        mask (get-mask required available)
+        extra (bit-shift-right (bit-and bits mask) remaining)]
+    (+ value extra)))
+
+(defn stream-bits
+  "The byte stream is converted to bits in the order expected when displayed
+  from left to right.  So the blocks are converted in the order they are
+  generated; for each block the bytes are taken in array index order; for
+  each byte the buts are taken from most to least significant bit."
+  ([bytes] (stream-bits (first bytes) 8 (rest bytes)))
+  ([bits available bytes]
+    (fn [required]
+      (loop [req required
+             value 0
+             bits bits
+             avail available
+             bytes bytes]
+        (cond
+          (zero? req) [value (stream-bits bits avail bytes)]
+          (zero? avail) (recur req value (first bytes) 8 (rest bytes))
+          (<= req avail) (recur 0 (transfer-bits req value bits avail)
+                           bits (- avail req) bytes)
+          :else (recur (- req avail) (transfer-bits avail value bits avail)
+                  (first bytes) 8 (rest bytes)))))))
+
+;; #### Extract values
 ;;
-;; The general approach follows
-;; [RFC3686](http://www.faqs.org/rfcs/rfc3686.html), except that Java
-;; handles the increment of the counter.
+;; All the extraction functions return a value and a new stream.  The
+;; new stream must be used in future calls (using the old stream will
+;; not trigger an error, but will return the same value as the previous
+;; call).
 
-(def ^:private ^{:doc "An array of zeroes; used as the 'plaintext' since we
-want to access the key stream."}
-  BLANK (byte-array BLOCK_SIZE (byte 0)))
+(def ^:private ^{:doc "A lookup table for the number of bits required to
+represent an unsigned byte.  Index 0 is provided to simplify indexing, but
+has a meaningless value."}
+  bit-table
+  (int-array
+    (flatten
+      (cons 0
+        (for [i (range 8)]
+          (repeat (bit-shift-left 1 i) (inc i)))))))
 
-(defn- stream-blocks
-  "Run the given cipher, generating a lazy stream of blocks.  The underlying
-  Java code increments the counter after each loop, generating a lazy stream
-  of blocks."
-  [cipher]
-  (lazy-seq
-    (let [block (.update cipher BLANK)]
-      (cons block (stream-blocks cipher)))))
+(defn
+  ^{:doc "Return the number of bits necessary to represent `n`."
+    :test #(do
+             (assert (= 0 (n-bits 0)))
+             (assert (= 1 (n-bits 1)))
+             (assert (= 2 (n-bits 2)))
+             (assert (= 2 (n-bits 3)))
+             (assert (= 8 (n-bits 255)))
+             (assert (= 9 (n-bits 256)))
+             (assert (= 9 (n-bits 257))))}
+  n-bits
+  ([n] (n-bits n 0))
+  ([n acc]
+    (cond
+      (zero? n) acc
+      (< n 256) (+ acc (nth bit-table n))
+      :else (recur (/ n 256) (+ acc 8)))))
+
+(defn rand-bits
+  "Similar to `rand-int`, returns a pseudo-random value from the semi-open
+  [0 maximum).
+
+  The minimum number of bits necessary to represent the largest return
+  value are taken from the bit stream.  If this is less than `maximum`
+  then it is returned, otherwise it is discarded and the process repeated.
+  This gives an unbiased, uniformly distributed value, assuming that the
+  bit stream itself is unbiased."
+  [maximum state]
+  (let [size (n-bits (dec maximum))]
+    (loop [state state]
+      (let [[r state] (state size)]
+        (if (< r maximum) [r state] (recur state))))))
+
+(defn rand-bits-symmetric
+  "Return a pseudo-random value from [-maximum maxiumum]."
+  [maximum state]
+  (let [[r state] (rand-bits (inc (* 2 maximum)) state)]
+    [(- r maximum) state]))
+
+(defn rand-sign
+  "Generate a pseudo-random, unbiased choice between 1 and -1."
+  [state]
+  (let [[r state] (rand-bits 1 state)]
+    [(if (= 1 r) r -1) state]))
+
+(defn rand-real
+  "Generate a pseudo-random, uniformly distributed real in the range [0 1).
+  Because this is calculated from a single byte only 256 distinct values are
+  possible."
+  [n state]
+  (let [[r state] (rand-bits 8 state)]
+    [(* n (/ r 256.0)) state]))
+
+
+;; ## Byte stream
 
 (defn- stream-unsigned-bytes
   "Convert a stream of blocks to a stream of unsigned bytes.
@@ -73,43 +178,24 @@ want to access the key stream."}
           (unsign-byte (nth block i))
           (stream-unsigned-bytes block (inc i) blocks))))))
 
-(def mask-table
-  (object-array
-    (for [available (range 9)]
-      (int-array
-        (for [required (range (inc available))]
-          (let [mask (dec (bit-shift-left 1 required))
-                remaining (- available required)]
-            (bit-shift-left mask remaining)))))))
+;; ## Block stream (Counter mode cipher)
+;;
+;; The general approach follows
+;; [RFC3686](http://www.faqs.org/rfcs/rfc3686.html), except that Java
+;; handles the increment of the counter.
 
-(defn get-mask
-  [required available]
-  (nth (nth mask-table available) required))
+(def ^:private ^{:doc "An array of zeroes; used as the 'plaintext' since we
+want to access the key stream."}
+  BLANK (byte-array BLOCK_SIZE (byte 0)))
 
-(defn- transfer-bits
-  [required value bits available]
-  (let [remaining (- available required)
-        value (bit-shift-left value required)
-        mask (get-mask required available)
-        extra (bit-shift-right (bit-and bits mask) remaining)]
-    (+ value extra)))
-
-(defn stream-bits
-  ([bytes] (stream-bits (first bytes) 8 (rest bytes)))
-  ([bits available bytes]
-    (fn [required]
-      (loop [req required
-             value 0
-             bits bits
-             avail available
-             bytes bytes]
-        (cond
-          (zero? req) [value (stream-bits bits avail bytes)]
-          (zero? avail) (recur req value (first bytes) 8 (rest bytes))
-          (<= req avail) (recur 0 (transfer-bits req value bits avail)
-                           bits (- avail req) bytes)
-          :else (recur (- req avail) (transfer-bits avail value bits avail)
-                  (first bytes) 8 (rest bytes)))))))
+(defn- stream-blocks
+  "Run the given cipher, generating a lazy stream of blocks.  The underlying
+  Java code increments the counter after each loop, generating a lazy stream
+  of blocks."
+  [cipher]
+  (lazy-seq
+    (let [block (.update cipher BLANK)]
+      (cons block (stream-blocks cipher)))))
 
 (defn- init-ctrblk
   "Create a counter block with CTR set to 1 (lsb)."
@@ -138,7 +224,7 @@ want to access the key stream."}
       (.init cipher Cipher/ENCRYPT_MODE key (IvParameterSpec. ctrblk))
       (stream-unsigned-bytes (stream-blocks cipher)))))
 
-;; ## Extension to widen key space
+;; #### Extension to widen key space
 
 (defn- extract-bytes
   "Extract a sub-array of bytes from the given data."
@@ -181,142 +267,15 @@ want to access the key stream."}
           streams (map rest streams)]
       (cons (apply bit-xor b) (parallel streams)))))
 
-(defn random-bytes
-  "Create a stream of random bytes, merging sufficient parallel streams
-  to consume all the input data as an initial seed."
+;; #### Main interface
+
+(defn random-bits
+  "Create a stream of random bits from the given data."
   [data]
   (let [len (count data)]
     (assert (> len 0) "No data to seed random stream")
     (let [n (int (/ (+ (dec KEY_SIZE) len) KEY_SIZE))]
-      (if (= 1 n)
-        (single data 0)
-        (parallel (for [i (range n)] (single data i)))))))
-
-(defn random-bits
-  [data]
-  (stream-bits (random-bytes data)))
-
-
-;; ## Extract values from the random byte stream
-;;
-;; All the extraction functions return a value and a new stream.  The
-;; new stream must be used in future calls (using the old stream will
-;; not trigger an error, but will return the same value as the previous
-;; call).
-
-;(defn rand-signed-byte
-;  "Generate a pseudo-random, uniformly distributed, signed byte in the
-;  range [-128 127]."
-;  [state]
-;  (let [[r & state] state]
-;    [r state]))
-;
-;(defn rand-unsigned-byte
-;  "Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
-;  range [0 255]."
-;  [state]
-;  (let [[r state] (rand-signed-byte state)]
-;    [(unsign-byte r) state]))
-;
-;(defn rand-real
-;  "Generate a pseudo-random, uniformly distributed real in the range [0 1).
-;  Because this is calculated from a single byte only 256 distinct values are
-;  possible."
-;  [n state]
-;  (let [[r state] (rand-unsigned-byte state)]
-;    [(* n (/ r 256.0)) state]))
-;
-;(defn- bitmask
-;  "A mask that covers the significant bits of the input, `n`."
-;  ([n] (if (< n 2) n (bitmask (bit-shift-right n 1) 1)))
-;  ([n m] (if (= 0 n) m (recur (bit-shift-right n 1) (inc (* 2 m))))))
-;
-;(defn rand-byte
-;  "Generate a pseudo-random, uniformly distributed, unsigned 'byte' in the
-;  range [0 n).  This signature matches the system `rand-int` routine
-;  (returning values in a half-open range).
-;
-;  The implementation masks and discards, rather than using modular division,
-;  to avoid bias."
-;  [n state]
-;  (assert (> n 0))
-;  (assert (< n 257))
-;  (let [[r state] (rand-unsigned-byte state)
-;        m (bitmask (dec n))
-;        r (bit-and r m)]
-;    (if (< r n) [r state] (recur n state))))
-;
-;(defn rand-sign
-;  "Generate a pseudo-random, unbiased choice between 1 and -1."
-;  [state]
-;  (let [[r state] (rand-byte 2 state)]
-;    [(if (= 1 r) r -1) state]))
-;
-;(defn rand-bool
-;  "Generate a pseudo-random 'boolean' value (`nil` for false)."
-;  [state]
-;  (let [[r state] (rand-byte 2 state)]
-;    [(if (= 1 r) 1 nil) state]))
-;
-;(defn rand-int16
-;  "Similar to `rand-byte`, but generating a 16 bit value."
-;  [n state]
-;  (assert (> n 0))
-;  (assert (< n 65537))
-;  (let [[r1 state] (rand-unsigned-byte state)
-;        [r2 state] (rand-unsigned-byte state)
-;        r (+ r1 (* 256 r2))
-;        m (bitmask (dec n))
-;        r (bit-and r m)]
-;    (if (< r n) [r state] (recur n state))))
-
-
-;; ## Extract values from the random bit stream
-;;
-;; All the extraction functions return a value and a new stream.  The
-;; new stream must be used in future calls (using the old stream will
-;; not trigger an error, but will return the same value as the previous
-;; call).
-
-(def bit-table
-  (int-array
-    (flatten
-      (cons 0
-        (for [i (range 8)]
-          (repeat (bit-shift-left 1 i) (inc i)))))))
-
-(defn n-bits
-  ([n] (n-bits n 0))
-  ([n acc]
-    (cond
-      (zero? n) acc
-      (< n 256) (+ acc (nth bit-table n))
-      :else (recur (/ n 256) (+ acc 8)))))
-
-; exclusive
-(defn rand-bits
-  [maximum state]
-  (let [size (n-bits (dec maximum))]
-    (loop [state state]
-      (let [[r state] (state size)]
-        (if (< r maximum) [r state] (recur state))))))
-
-; inclusive
-(defn rand-bits-symmetric
-  [maximum state]
-  (let [[r state] (rand-bits (inc (* 2 maximum)) state)]
-    [(- r maximum) state]))
-
-(defn rand-sign
-  "Generate a pseudo-random, unbiased choice between 1 and -1."
-  [state]
-  (let [[r state] (rand-bits 1 state)]
-    [(if (= 1 r) r -1) state]))
-
-(defn rand-real
-  "Generate a pseudo-random, uniformly distributed real in the range [0 1).
-  Because this is calculated from a single byte only 256 distinct values are
-  possible."
-  [n state]
-  (let [[r state] (rand-bits 8 state)]
-    [(* n (/ r 256.0)) state]))
+      (stream-bits
+        (if (= 1 n)
+          (single data 0)
+          (parallel (for [i (range n)] (single data i))))))))

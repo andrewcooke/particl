@@ -46,23 +46,8 @@
   (is (= 2 (get-mask 1 2)))
   (is (= 254 (get-mask 7 8))))
 
-(deftest test-bit-table
-  (is (= 0 (nth bit-table 0)))
-  (is (= 1 (nth bit-table 1)))
-  (is (= 2 (nth bit-table 2)))
-  (is (= 2 (nth bit-table 3)))
-  (is (= 8 (nth bit-table 254)))
-  (is (= 8 (nth bit-table 255)))
-  (is (= 256 (count bit-table))))
-
 (deftest test-n-bits
-  (is (= 0 (n-bits 0)))
-  (is (= 1 (n-bits 1)))
-  (is (= 2 (n-bits 2)))
-  (is (= 2 (n-bits 3)))
-  (is (= 8 (n-bits 255)))
-  (is (= 9 (n-bits 256)))
-  (is (= 9 (n-bits 257))))
+  (test #'n-bits))
 
 (deftest test-stream-bits
   (let [s0 (stream-bits [2r11110000 2r10101010])
@@ -80,15 +65,17 @@
 ; with an sd of 16.
 
 (defn lengths
-  ([r] (lengths (rest r) (first r) 1))
+  "Measure distance between repated values."
+  ([r] (let [[a r] (rand-bits 256 r)] (lengths r a 1)))
   ([r a n]
-    (let [b (first r)]
+    (let [[b r] (rand-bits 256 r)]
       (if (= a b)
-        (lazy-seq (cons n (lengths (rest r) a 1)))
-        (recur (rest r) a (inc n))))))
+        (lazy-seq (cons n (lengths r a 1)))
+        (recur r a (inc n))))))
 
 (deftest test-lengths
-  (is (= [1 3 2] (take 3 (lengths [0 0 1 1 0 1 0 0])))))
+  "Check the lengths function itself."
+  (is (= [1 3 2] (take 3 (lengths (stream-bits [0 0 1 1 0 1 0 0]))))))
 
 (defn sqr [x] (* x x))
 
@@ -102,13 +89,12 @@
     (is (< s-sd (* (+ 1 err) sd)))
     (is (> s-sd (* (- 1 err) sd)))))
 
-(println (take 32 (random-bytes (byte-array 64 (byte 0)))))
-
 (deftest measure-repeat
-  (let [r (random-bytes (byte-array 1 (byte 1)))
+  "Check stats of lengths of sequences between same value."
+  (let [r (random-bits (byte-array 1 (byte 1)))
         l (lengths r)]
     (assert-stats (take 1000 l) 256 256 0.1))
-  (let [r (random-bytes (byte-array 64 (byte 1)))
+  (let [r (random-bits (byte-array 64 (byte 1)))
         l (lengths r)]
     (assert-stats (take 1000 l) 256 256 0.1)))
 
@@ -123,6 +109,10 @@
     s))
 
 (deftest check-bit-sensitive
+  "Every different bit stream should return a different 16 bit integer
+  (on average!).  The input data are [1 1 ... 1] for different sizes,
+  and with each 1 in turn swapped to 2, to give some kind of sweep of
+  possible inputs."
   (let [sizes [1 127 128 129 255 256 257 512]
         values
         (for [n-bits sizes
@@ -131,7 +121,7 @@
                 (byte-array
                   (for [i (range n-bits)]
                     (byte (if (= i index) 1 2))))]
-            [n-bits index (take 4 (random-bytes hash))]))
+            [n-bits index (rand-bits 16 (random-bits hash))]))
         s (filter-dups #{} values)]
     ;    (println values)
     ;    (println s)
@@ -143,9 +133,11 @@
       (cons r (rand-stream f state)))))
 
 (deftest test-rubho
+  "Test mean and SD against that expected for uniform distribution.  Only
+  use values > 11 as statis influenced by discrete values."
   (doseq [n (range 12 256)]
-    (let [s (random-bytes (byte-array 1 (byte (bit-and n 127))))
-          r (rand-stream (partial rand-byte n) s)]
+    (let [s (random-bits (byte-array 1 (byte (bit-and n 127))))
+          r (rand-stream (partial rand-bits n) s)]
       (assert-stats (take 10000 r) (/ (dec n) 2.0) (/ (dec n) (sqrt 12)) 0.1))))
 
 (run-tests)
