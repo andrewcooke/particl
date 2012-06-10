@@ -140,12 +140,14 @@ Functions used in the output sections of the pipeline.
   This increases the variation among images, consuming 10 bits of state."
   [n scale colour width mono raw]
   (fn [[rows state]]
+    (println (map-rows #(int (* 128 (+ 1 %))) rows))
     (let [[rotate state] (if raw [1 state] (rand-sign state))
           [h-v-l state] (if raw [1 state] (rand-sign state))
           [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))
-          mosaic (expand-mosaic n scale colour width
-        (floats-to-hsl mono LIGHTNESS DAZZLE h-v-l hue
-          (if (= 1 rotate) rows (rotate-rows n rows))))]
+          mosaic
+          (expand-mosaic n scale colour width
+            (floats-to-hsl mono LIGHTNESS DAZZLE h-v-l hue
+              (if (= 1 rotate) rows (rotate-rows n rows))))]
       [colour mosaic state])))
 
 

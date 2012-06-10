@@ -26,48 +26,7 @@ which reduces the search space needed to identify collisions.
 ;; A database provides faster access than generating on the fly (it takes
 ;; about 10 hours to generate a million 20x20 mosaics on my laptop).
 
-(defn- triangle
-  "Extract the unique data from the lower triangle of the mosaic."
-  ([rows] (triangle rows 1))
-  ([rows n]
-    (let [rows (seq rows)]
-      (if rows
-        (cons (take n (first rows)) (triangle (rest rows) (inc n)))
-        nil))))
-
-(defn- triangle-size
-  "The number of bytes in the lower triangle "
-  [n]
-  (/ (* n (inc n)) 2))
-
-(defn- to-byte
-  "Convert the normalized render output, which are floats in [-1 1]
-  (analysis here assumes histogram-equalized data), to bytes.
-
-  We need to be careful about rounding to integers about zero.  Scaling to
-  [0 255] would give more values at [0] since [0 1) is rounded there.  So
-  scale to [0 255.99] as an approximation for [0 256).
-
-  Conversion to (native, signed) bytes uses bit-equivalent values."
-  [x]
-  (sign-byte (int (* (/ 255.99 2) (+ 1 x)))))
-
-(defn- extract
-  "Take the output from a render function, extract the lower triangle, and
-  scale to one byte per pixel."
-  [rows]
-  (byte-array (map to-byte (flatten (triangle rows)))))
-
-(defn- touch
-  "Ensure that file `path` exists."
-  [path]
-  (let [file (File. path)]
-    (.createNewFile file)))
-
-(defn- measure
-  "Measure the size size of a file, in terms of the number of mosaics."
-  [path n]
-  (/ (.length (File. path)) (triangle-size n)))
+;; #### Stream of mosaics
 
 (defn print-tick
   "Print some output to stdout as a task runs."
@@ -83,23 +42,146 @@ which reduces the search space needed to identify collisions.
   "Generate a dummy tick function, for use when no output is required."
   [i])
 
-(defn dump
-  "Append `count` patterns to the database file.
+(defn- to-byte
+  "Convert the normalized render output, which are floats in [-1 1]
+  (analysis here assumes histogram-equalized data), to bytes.
 
-  The patterns are based on the SHA-1 hash of the UTF8 encoded string
-  representation of the pattern number, plus the prefix, starting at 0."
-  [tick path count normalize render n prefix]
-  (touch path)
-  (let [offset (measure path n)
-        hash (word-hash "SHA-1")
-        render (render n)]
-    (println "skipping" offset "existing entries")
-    (with-open [out (FileOutputStream. path Boolean/TRUE)]
-      (doseq [i (range offset (+ offset count))]
-        (let [state (hash (str prefix i))
+  We need to be careful about rounding to integers about zero.  Scaling to
+  [0 255] would give more values at [0] since [0 1) is rounded there.  So
+  scale to [0 255.99] as an approximation for [0 256).
+
+  Conversion to (native, signed) bytes uses bit-equivalent values."
+  [x]
+  (sign-byte (int (* (/ 255.99 2) (+ 1 x)))))
+
+(defn- mosaic-stream
+  ([n prefix normalize render tick]
+    (let [hash (word-hash "SHA-1")
+          render (render n)]
+      (mosaic-stream n prefix normalize render tick hash 0)))
+  ([n prefix normalize render tick hash offset]
+    (lazy-seq
+      (cons
+        (let [state (hash (str prefix offset))
               [rows state] (normalize (render state))]
-          (tick i)
-          (.write out (extract rows)))))))
+          (tick offset)
+          (map-rows to-byte rows))
+        (mosaic-stream n prefix normalize render tick hash (inc offset))))))
+
+;; #### Extract data to save
+
+(defn lower
+  [n [x y]]
+  (let [m (inc n)
+        dx (* m x)
+        dy (* m y)]
+    (flatten-1
+      (for [j (range n)]
+        (for [i (range (inc j))]
+          [(+ dx i) (+ dy j)])))))
+
+(defn upper
+  [n [x y]]
+  (let [m (inc n)
+        dx (+ n (* m x))
+        dy (+ -1 (* 2 n) (* m y))]
+    (flatten-1
+      (for [j (range n)]
+        (for [i (range (inc j))]
+          [(- dx i) (- dy j)])))))
+
+(defn left
+  [n]
+  (flatten-1
+    (for [i (range (inc (int (/ n 2))))]
+      (for [j (range i (dec (- n i)))]
+        [i j]))))
+
+(defn bottom
+  [n]
+  (flatten-1
+    (for [j (range (dec n) (dec (- n (int (/ n 2)))) -1)]
+      (for [i (range (- n j) (inc j))]
+        [i j]))))
+
+(defn make-pick-bytes
+  [xys]
+  (fn [rows]
+    (map #(nth-2 rows %) xys)))
+
+(defn- triangle-size
+  "The number of bytes in a triangle of side `n`."
+  [n]
+  (/ (* n (inc n)) 2))
+
+;; #### Sink to a file
+
+(defn make-sink
+  [out pickers]
+  (fn [rows]
+    (doseq [picker pickers]
+      (.write out (byte-array (picker rows))))))
+
+(defn dump-single
+  [normalize render tick path prefix n count]
+  (let [mosaics (mosaic-stream n prefix normalize render tick)
+        path (format "%s-%s-%d.dmp" path prefix n)]
+    (with-open [out (FileOutputStream. path Boolean/FALSE)]
+      (let [sink (make-sink out [(make-pick-bytes (lower n [0 0]))])]
+        (doseq [mosaic (take count mosaics)]
+          (sink mosaic))))))
+
+;(defn dump-pair
+;  [normalize render tick path prefix n count]
+;  (let [mosaics (mosaic-stream n prefix normalize render tick)]
+;    (with-open [out-l (FileOutputStream. (str path "-l.dmp") Boolean/FALSE)
+;                out-b (FileOutputStream. (str path "-b.dmp") Boolean/FALSE)]
+;      (let [sink-l (make-sink out-l [(make-pick-bytes (left n))])
+;            sink-b (make-sink out-b [(make-pick-bytes (bottom n))])]
+;        (doseq [mosaic (take count mosaics)]
+;          (sink-l mosaic)
+;          (sink-b mosaic))))))
+;
+;(defn- full-triangle
+;  "Extract the unique data from the lower triangle of the mosaic."
+;  ([label rows] (full-triangle [label []] rows 1))
+;  ([[label acc] rows n]
+;    (let [rows (seq rows)]
+;      (if rows
+;        (conj acc (take n (first rows)) (full-triangle (rest rows) (inc n)))
+;        [label acc]))))
+;
+;
+;(defn- extract
+;  "Take the output from a render function, extract the lower triangle, and
+;  scale to one byte per pixel."
+;  [rows]
+;  (byte-array (map to-byte (flatten (full-triangle rows)))))
+;
+;(defn- touch
+;  "Ensure that file `path` exists."
+;  [path]
+;  (let [file (File. path)]
+;    (.createNewFile file)))
+;
+
+;(defn dump
+;  "Append `count` patterns to the database file.
+;
+;  The patterns are based on the SHA-1 hash of the UTF8 encoded string
+;  representation of the pattern number, plus the prefix, starting at 0."
+;  [tick path count normalize render n prefix]
+;  (touch path)
+;  (let [offset (measure path n)
+;        hash (word-hash "SHA-1")
+;        render (render n)]
+;    (println "skipping" offset "existing entries")
+;    (with-open [out (FileOutputStream. path Boolean/TRUE)]
+;      (doseq [i (range offset (+ offset count))]
+;        (let [state (hash (str prefix i))
+;              [rows state] (normalize (render state))]
+;          (tick i)
+;          (.write out (extract rows)))))))
 
 ;; ## Read and process database contents
 
@@ -319,6 +401,11 @@ which reduces the search space needed to identify collisions.
             (fn [key] [(unpack size key) (.get matches key)])
             (filter (fn [key] (> (.get matches key) (* 0.25 best)))
               (.keys matches))))))))
+
+(defn- measure
+  "Measure the size size of a file, in terms of the number of mosaics."
+  [path n]
+  (/ (.length (File. path)) (triangle-size n)))
 
 (defn nearest-in-dump
   ([tick path n bits n-samples startup seed]

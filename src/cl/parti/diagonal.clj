@@ -40,7 +40,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
 "
       :author "andrew@acooke.org"}
   cl.parti.diagonal
-  (:use (cl.parti random))
+  (:use (cl.parti random utils))
   (:use clojure.math.numeric-tower))
 
 
@@ -134,10 +134,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
   [n state]
   (let [[[dx x] state] (rand-2 n state)
         [[dy y] state] (rand-2 n state)]
-    ; major bug here with (> y x)
-    ; x increases down, y increases to right; important triangle is
-    ; bottom-left.
-    (if (> y (+ x dx)) (recur n state) [[dx dy x y] state])))
+    (if (> x (+ y dy)) (recur n state) [[dx dy x y] state])))
 
 ;; ## The transformation
 
@@ -150,14 +147,6 @@ render function (`cl.parti.output`) will later convert these values to colours.
   reasonably flat at 1:2; using 0.23 makes the results less contrasty."}
   NORM 0.23)
 
-(defn apply-2
-  "Apply function `f` to the value in the 2D nested sequences `rows` at
-  (`x`,`y`)."
-  [f rows [x y]]
-  (let [row (rows x)
-        val (f (row y))]
-    (assoc rows x (assoc row y val))))
-
 (defn shift-rectangle
   "Add `delta` to the rectangle defined by the random parameters.
 
@@ -165,7 +154,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
   [[n rows] [delta [dx dy x y] state]]
   (let [xys (for [i (range dx) j (range dy)] [(+ x i) (+ y j)])
         delta #(+ delta %)]
-    [n (reduce #(apply-2 delta %1 %2) rows xys) state]))
+    [n (reduce #(vapply-2 delta %1 %2) rows xys) state]))
 
 (defn repeated-transform
   "Pull all the above together - generate a sequence of random parameters
@@ -185,10 +174,10 @@ render function (`cl.parti.output`) will later convert these values to colours.
   "Reflect the lower triangle to the upper.  This allows the `rectangle`
   builder to generate an initial, asymmetric pattern."
   [n rows]
-  (for [x (range n)]
-    (for [y (range n)]
-      (let [[x y] (if (> y x) [y x] [x y])]
-        (nth (nth rows x) y)))))
+  (for [y (range n)]
+    (for [x (range n)]
+      (let [[x y] (if (> x y) [y x] [x y])]
+        (nth-2 rows [x y])))))
 
 (defn rectangle
   "The rectangle builder function."

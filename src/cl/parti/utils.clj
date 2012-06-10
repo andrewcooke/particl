@@ -73,6 +73,23 @@ Various utilitiy functions.
   [list]
   (apply concat list))
 
+;; ## Data Structures
+;;
+;; Much of the code here deals with a 'mosaic' in various forms.  This is
+;; usually represented as a sequence of sequences.  The *outer* sequence
+;; (the mosaic) collects the rows; an *inner* sequences (a row) contains the
+;; pixel values.  So if the mosaic is represented as a float (called the
+;; 'internal representation') then a row is a sequence of floats.  If the
+;; mosaic is represented as HSL triplets then a row is a sequence of triplets.
+;;
+;; The structure maps directly to the PNG format, so the first row in the
+;; mosaic is the top row of the image.  We can use this to define coordinates:
+;; `y` is the row number (from the top) and `x` is the pixel number (from
+;; the right).
+;;
+;; An exception to the above is in the `analysis` module, where triangular
+;; samples are extracted as sequences of bytes.
+
 (defn map-rows
   "The 2D mosaic is generally modelled as sequences of sequences.  This
   defines a shape-preserving map over the values."
@@ -80,3 +97,23 @@ Various utilitiy functions.
   (for [row rows]
     (for [col row] (f col))))
 
+(defn nth-2
+  [colln [x y]]
+  (nth (nth colln y) x))
+
+(defn vapply-2
+  "Apply function `f` to the value in the 2D nested sequences `rows` at
+  `[x,y]` (this assumes nested vectors)."
+  [f rows [x y]]
+  (let [row (rows y)
+        val (f (row x))]
+    (assoc rows y (assoc row x val))))
+
+(defmacro dopar [seq-expr & body]
+  (assert (= 2 (count seq-expr)) "single pair of forms in sequence expression")
+  (let [[k v] seq-expr]
+    `(apply await
+       (for [k# ~v]
+         (let [a# (agent k#)]
+           (send a# (fn [~k] ~@body))
+           a#)))))

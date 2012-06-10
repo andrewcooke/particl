@@ -247,10 +247,10 @@ the mosaic(s).
   (let [scale (:tile-size options)
         colour (:border-colour options)
         width (:border-width options)
-        mono (:monochrome options)
+        grey (:grey options)
         raw (:raw options)
         rate (:holes options)]
-    [(render-floats n scale colour width mono raw)
+    [(render-floats n scale colour width grey raw)
      (holes n scale width rate)]))
 
 (defn select-display
