@@ -17,9 +17,10 @@ Assemble the pipeline components to generate mosaics.
     the hash;
   - *hash* hashes the values;
   - *builder* constructs the mosaic, in an internal format, from the hash;
+  - *pre-editor* modified the internal format;
   - *normalize* reduces the range of the internal format;
   - *render* converts the internal format to an array of HSL pixels;
-  - *editor* modifies the HSL pixels;
+  - *post-editor* modifies the HSL pixels;
   - *display* presents the image to the user.
 
 The hash is applied within the reader so that the reader can close streams
@@ -28,15 +29,15 @@ the entire value in memory, and without exposing open streams.
 
 The types of return values could vary, as long as the different components
 interact correctly, but are currently consistent for each stage."
-  [reader hash builder normalize editor render display]
+  [reader hash builder pre-editor normalize render post-editor display]
   (fn [args]
     (doseq [state (reader hash args)]
-      (-> state builder normalize editor render display))))
+      (-> state builder pre-editor normalize render post-editor display))))
 
 (defn -main
   "Combine the pipeline above with the command line option handling in
   `cl.parti.cli` to give a command-line application."
   [& args]
-  (let [[[[reader hash] [builder normalize] [editor render] display] args]
+  (let [[[[reader hash] [builder pre-editor] normalize [render post-editor] display] args]
         (handle-args args)]
-    ((particl reader hash builder normalize editor render display) args)))
+    ((particl reader hash builder pre-editor normalize render post-editor display) args)))

@@ -9,6 +9,25 @@ Functions used in the output sections of the pipeline.
   (:use (cl.parti png utils hsl random)))
 
 
+;; ## Pre-editor functions
+
+(defn noise
+  [n]
+  (let [m (bit-shift-right n 2)]
+    (fn [[norm rows state]]
+      (let [[rows state]
+            (map-state-2
+              (fn [state value]
+                (let [[delta state] (rand-bits-symmetric m state)]
+                  [(+ delta value) state]))
+              state rows)]
+        [norm rows state]))))
+
+(defn no-pre-editor
+  [n]
+  (fn [[norm rows state]]
+    [norm rows state]))
+
 ;; ## Normalize functions
 ;;
 ;; Reduce the range of values in the internal representation.
@@ -27,14 +46,14 @@ Functions used in the output sections of the pipeline.
   [rows]
   (let [flat (flatten rows)
         mean (/ (apply + flat) (count flat))]
-    (map-rows #(- % mean) rows)))
+    (map-2 #(- % mean) rows)))
 
 (defn normalize-sigmoid
   "Subtract the mean and then normalize with a sigmoid, giving a 'soft'
   appearance and reduced dynamic range."
   [[norm rows state]]
   (let [rows (de-mean rows)]
-    [(map-rows (make-sigmoid norm) rows) state]))
+    [(map-2 (make-sigmoid norm) rows) state]))
 
 ;; #### Hard normalisation
 
@@ -58,7 +77,7 @@ Functions used in the output sections of the pipeline.
   maximum dynamic range."
   [[norm rows state]]
   (let [hist (cumulate (flatten rows))]
-    [(map-rows (fn [x] (- (* 2 (hist x)) 1)) rows) state]))
+    [(map-2 (fn [x] (- (* 2 (hist x)) 1)) rows) state]))
 
 ;; ## Render functions
 ;;
@@ -66,59 +85,49 @@ Functions used in the output sections of the pipeline.
 
 (def
   ^{:doc ""}
-  LIGHTNESS 0.9)
+  LIGHTNESS 0.8)
 
 (def
   ^{:doc ""}
-  DAZZLE 0.75)
+  DAZZLE 0.4)
 
 (defn- floats-to-hsl
   "Convert a mosaic (2D nested sequences) of normalized (-1 1) floats to
-  HSL triplets.
+ HSL triplets.
 
-  The mosaic is based on a (randomly selected) fully saturated hue.  The
-  float values then describe an offset, in both hue and lightness, relative
-  to that.  This approach correlates colour and lightness shifts, making the
-  structure in the mosaic more likely to visible to those with restricted
-  colour vision."
+ The mosaic is based on a (randomly selected) fully saturated hue.  The
+ float values then describe an offset, in both hue and lightness, relative
+ to that.  This approach correlates colour and lightness shifts, making the
+ structure in the mosaic more likely to visible to those with restricted
+ colour vision."
   [mono lightness dazzle h-v-l hue rows-11]
   (defn to-hsl [x]
     (let [x (/ x 2)] ; [-1 1] => [-0.5 0.5]
       [(if mono 0 (fold (+ hue (* dazzle x))))
        (if mono 0 1)
        (clip (+ 0.5 (* lightness h-v-l x)))]))
-  (map-rows to-hsl rows-11))
-
-(defn- rotate-rows
-  "Rotate the rows.
-
-  Rendered images are diagonally symmetric so have two distinct orientations."
-  [n rows]
-  (let [m (dec n)]
-    (for [j (range n)]
-      (for [i (range n)]
-        (nth (nth rows (- m i)) j)))))
+  (map-2 to-hsl rows-11))
 
 (defn bracket-interpose
   "Extend the standard `interpose` function, adding an additional copy
-  of the padding at either end of the sequence."
+of the padding at either end of the sequence."
   [sep col]
   (concat [sep] (interpose sep col) [sep]))
 
 (defn no-interpose
   "A replacement for `interpose` that discards the additional padding.  Used
-  when no background is required."
+when no background is required."
   [sep col]
   col)
 
 (defn expand-mosaic
   "The mosaic is generated using a single value / pixel per tile.  This is
-  all that is necessary during generation, since each tile is uniform.
-  However, during rendering, each tile must be expanded, and the background
-  grid (or 'grout') introduced.
+ all that is necessary during generation, since each tile is uniform.
+ However, during rendering, each tile must be expanded, and the background
+ grid (or 'grout') introduced.
 
-  This is achieved here by `repeat`ing tile pixels and then `interpose`ing
-  the background."
+ This is achieved here by `repeat`ing tile pixels and then `interpose`ing
+ the background."
   [n scale colour width rows]
   (let [size (+ (* n scale) (* (inc n) width))
         horizontal (repeat width (repeat size colour))
@@ -135,29 +144,27 @@ Functions used in the output sections of the pipeline.
 
 (defn render-floats
   "Convert and expand the internal float-based representation, generating a
-  full mosaic of HSL values.
+full mosaic of HSL values.
 
-  This increases the variation among images, consuming 10 bits of state."
+This increases the variation among images, consuming 10 bits of state."
   [n scale colour width mono raw]
   (fn [[rows state]]
-    (println (map-rows #(int (* 128 (+ 1 %))) rows))
     (let [[rotate state] (if raw [1 state] (rand-sign state))
           [h-v-l state] (if raw [1 state] (rand-sign state))
           [hue state] (if raw [(/ raw 255.0) state] (rand-real 1 state))
           mosaic
           (expand-mosaic n scale colour width
             (floats-to-hsl mono LIGHTNESS DAZZLE h-v-l hue
-              (if (= 1 rotate) rows (rotate-rows n rows))))]
+              (if (= 1 rotate) rows (rotate-2 n rows))))]
+      (println hue h-v-l)
       [colour mosaic state])))
 
 
-;; ## Editor functions
-;;
-;; Modify the HSL pixels.
+;; ## Post-editor functions
 
 (defn- to-vec-2d
   "Convert the nested 2D sequences to nested 2D vectors to support
-  efficient random-access updates."
+efficient random-access updates."
   [rows]
   (vec (for [row rows] (vec row))))
 
@@ -170,7 +177,7 @@ Functions used in the output sections of the pipeline.
 (defn- darken-pixel
   "Update the given image, darkening a given pixel.
 
-  This was an alternative to `set-pixel` that didn't look so good."
+This was an alternative to `set-pixel` that didn't look so good."
   [bg]
   (fn [mosaic [x y]]
     (let [p ((mosaic x) y)]
@@ -178,7 +185,7 @@ Functions used in the output sections of the pipeline.
 
 (defn- corner-pixels
   "Generate a function which, given a tile location and corner index,
-  returns a list of pixel indices that describe a triangular 'corner'."
+returns a list of pixel indices that describe a triangular 'corner'."
   [n scale width]
   (let [size (int (/ scale 3))
         delta (dec scale)]
@@ -192,7 +199,7 @@ Functions used in the output sections of the pipeline.
 
 (defn- rand-corner
   "Generate a function which, given an existing list of pixels and a tile
-  location, appends pixels for a random corner on that tile."
+location, appends pixels for a random corner on that tile."
   [n scale width]
   (let [cp (corner-pixels n scale width)]
     (fn [[pixels state] [x y]]
@@ -213,9 +220,9 @@ Functions used in the output sections of the pipeline.
 (defn- rand-hole
   "Choose random 'holes' on the corners of the mosaic.
 
-  More exactly, at generate a function which, given a point, randomly
-  decides whether or not it should contain a hole.  If so, list the
-  pixels that need to be set (affecting four neighbouring tiles)."
+More exactly, at generate a function which, given a point, randomly
+decides whether or not it should contain a hole.  If so, list the
+pixels that need to be set (affecting four neighbouring tiles)."
   [n scale width rate]
   (let [cp (corner-pixels n scale width)]
     (fn [[pixels state] [x y]]
@@ -233,11 +240,11 @@ Functions used in the output sections of the pipeline.
 (defn holes
   "Add random 'punch holes' to the image.
 
-  The `rate` parameter means the following:
+The `rate` parameter means the following:
 
-  * 0: disabled
-  * n: a random 'hole' once every n interstices, on average
-  * -ve: random holes everywhere, except random omissions every abs(n)."
+* 0: disabled
+* n: a random 'hole' once every n interstices, on average
+* -ve: random holes everywhere, except random omissions every abs(n)."
   [n scale width rate]
   (fn [[bg mosaic state]]
     (if (zero? rate)
@@ -248,7 +255,7 @@ Functions used in the output sections of the pipeline.
             (reduce (rand-hole n scale width rate) [nil state] centres)]
         [bg (reduce (set-pixel bg) mosaic (flatten-1 pixels)) state]))))
 
-(defn no-editor
+(defn no-post-editor
   "A dummy editor function for when nothing is required."
   [[bg mosaic state]]
   [mosaic state])
@@ -261,22 +268,22 @@ Functions used in the output sections of the pipeline.
 
 (defn print-rows
   "This defines a simple API used to print the mosaic, implemented by the
-  `cl.parti.png` module.  Two functions are used - one converts each
-  pixel; the other is passed the mosaic dimension and the converted values."
+`cl.parti.png` module.  Two functions are used - one converts each
+pixel; the other is passed the mosaic dimension and the converted values."
   [[printer convert] rows]
-  (printer (count rows) (map-rows convert rows)))
+  (printer (count rows) (map-2 convert rows)))
 
 (defn file-display
   "Save the mosaic (2D nested sequences of HSL values) as a PNG format
-  image, using the functions defined in `cl.parti.png`.
+image, using the functions defined in `cl.parti.png`.
 
-  Small mosaics (side of 16 or less) are indexed to reduce file size.
-  An arbitrary mosaic of size 16 can contain 257 different colours (one
-  for each tile, plus backgroud).  However, mosaics are symmetrical, so
-  the maximum number of colours is significantly less.
+Small mosaics (side of 16 or less) are indexed to reduce file size.
+An arbitrary mosaic of size 16 can contain 257 different colours (one
+for each tile, plus backgroud).  However, mosaics are symmetrical, so
+the maximum number of colours is significantly less.
 
-  It might pay to count the number of distinct colours if we can extend to
-  20x20 mosaics (corresponding to the 'hash' style)."
+It might pay to count the number of distinct colours if we can extend to
+20x20 mosaics (corresponding to the 'hash' style)."
   [path]
   (let [index (atom 0)]
     (fn [[bg rows state]]

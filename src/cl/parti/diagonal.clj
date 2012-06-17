@@ -46,12 +46,6 @@ render function (`cl.parti.output`) will later convert these values to colours.
 
 ;; ## Generate random parameters
 
-;(defn- int16-symmetric
-;  "Select a random integer from [-n n]."
-;  [n state]
-;  (let [[r state] (rand-int16 (inc (* 2 n)) state)]
-;    [(- r n) state]))
-
 (defn- centre-distance
   "One plus the number of pixels between the given block (starting at `x`,
   length `dx`) and the central pixel(s), when placed in a line of length `n`.
@@ -91,14 +85,6 @@ render function (`cl.parti.output`) will later convert these values to colours.
     (fn [location state]
       (let [d (inc (m location))]
         (rand-bits-symmetric d state)))))
-
-;(defn manhattan-delta
-;  [n]
-;  (let [m (manhattan n)]
-;    (fn [location state]
-;      (let [d (inc (m location))
-;            [delta state] (rand-sign state)]
-;        [(* d delta) state]))))
 
 (defn- parameters
   "Construct a lazy sequence of random values, taken from the functions
@@ -185,6 +171,16 @@ render function (`cl.parti.output`) will later convert these values to colours.
   (fn [state]
     (let [[rows state]
           (repeated-transform
-            rand-4 (manhattan-delta n) shift-rectangle n (expt n 2) state)
+            rand-4 (manhattan-delta n) shift-rectangle n (expt n 3) state)
           norm (* NORM (expt n 1.5))]
       [norm (reflect n rows) state])))
+
+(defn rectangle-pair
+  [n]
+  (let [r (rectangle n)
+        avg (fn [[a b]] (/ (+ a b) 2))]
+    (fn [state]
+      (let [[norm rect-1 state] (r state)
+            [_ rect-2 state] (r state)
+            rect-2 (rotate-2 n rect-2)]
+        [norm (map-2 avg (zip-2 rect-1 rect-2)) state]))))

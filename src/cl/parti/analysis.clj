@@ -12,6 +12,7 @@ which reduces the search space needed to identify collisions.
   cl.parti.analysis
   (:use (cl.parti input utils))
   (:import java.io.File)
+  (:import java.io.FileWriter)
   (:import java.io.FileOutputStream)
   (:import java.io.FileInputStream)
   (:import java.io.BufferedInputStream)
@@ -55,18 +56,19 @@ which reduces the search space needed to identify collisions.
   (sign-byte (int (* (/ 255.99 2) (+ 1 x)))))
 
 (defn- mosaic-stream
-  ([n prefix normalize render tick]
+  ([n prefix normalize editor builder tick]
     (let [hash (word-hash "SHA-1")
-          render (render n)]
-      (mosaic-stream n prefix normalize render tick hash 0)))
-  ([n prefix normalize render tick hash offset]
+          builder (builder n)
+          editor (editor n)]
+      (mosaic-stream n prefix normalize editor builder tick hash 0)))
+  ([n prefix normalize editor builder tick hash offset]
     (lazy-seq
       (cons
         (let [state (hash (str prefix offset))
-              [rows state] (normalize (render state))]
+              [rows state] (-> state builder editor normalize)]
           (tick offset)
-          (map-rows to-byte rows))
-        (mosaic-stream n prefix normalize render tick hash (inc offset))))))
+          (map-2 to-byte rows))
+        (mosaic-stream n prefix normalize editor builder tick hash (inc offset))))))
 
 ;; #### Extract data to save
 
@@ -114,22 +116,42 @@ which reduces the search space needed to identify collisions.
   [n]
   (/ (* n (inc n)) 2))
 
-;; #### Sink to a file
+;; #### Write lower triangle
 
-(defn make-sink
+(defn byte-sink
   [out pickers]
   (fn [rows]
     (doseq [picker pickers]
       (.write out (byte-array (picker rows))))))
 
-(defn dump-single
-  [normalize render tick path prefix n count]
-  (let [mosaics (mosaic-stream n prefix normalize render tick)
+(defn dump-lower
+  [normalize builder tick path prefix n count]
+  (let [mosaics (mosaic-stream n prefix normalize builder tick)
         path (format "%s-%s-%d.dmp" path prefix n)]
     (with-open [out (FileOutputStream. path Boolean/FALSE)]
-      (let [sink (make-sink out [(make-pick-bytes (lower n [0 0]))])]
+      (let [sink (byte-sink out [(make-pick-bytes (lower n [0 0]))])]
         (doseq [mosaic (take count mosaics)]
           (sink mosaic))))))
+
+;; #### Differences
+
+(defn difference
+  [a b]
+  (reduce-2 (fn [z [a b]] (+ z (Math/abs (- a b)))) 0 (zip-2 a b)))
+
+(defn fmt-pair-sink
+  [out fmt f]
+  (fn [[a b]]
+    (.write out (format fmt (f a b)))))
+
+(defn dump-difference
+  [normalize editor builder tick path prefix n count]
+  (let [mosaics (mosaic-stream n prefix normalize editor builder tick)
+        path (format "%s-%s-%d.txt" path prefix n)]
+    (with-open [out (FileWriter. path Boolean/FALSE)]
+      (let [sink (fmt-pair-sink out "%d\n" difference)]
+        (doseq [pair (take count (partition 2 mosaics))]
+          (sink pair))))))
 
 ;(defn dump-pair
 ;  [normalize render tick path prefix n count]

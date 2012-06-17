@@ -134,7 +134,7 @@
 
 (deftest test-rubho
   "Test mean and SD against that expected for uniform distribution.  Only
-  use values > 11 as statis influenced by discrete values."
+  use values > 11 as stats influenced by discrete values."
   (doseq [n (range 12 256)]
     (let [s (random-bits (byte-array 1 (byte (bit-and n 127))))
           r (rand-stream (partial rand-bits n) s)]

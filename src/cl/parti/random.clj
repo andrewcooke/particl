@@ -134,7 +134,7 @@ has a meaningless value."}
   This gives an unbiased, uniformly distributed value, assuming that the
   bit stream itself is unbiased."
   [maximum state]
-  (let [size (n-bits (dec maximum))]
+  (let [size (n-bits (dec maximum))]aes
     (loop [state state]
       (let [[r state] (state size)]
         (if (< r maximum) [r state] (recur state))))))
@@ -148,16 +148,17 @@ has a meaningless value."}
 (defn rand-sign
   "Generate a pseudo-random, unbiased choice between 1 and -1."
   [state]
-  (let [[r state] (rand-bits 1 state)]
+  (let [[r state] (rand-bits 2 state)]
     [(if (= 1 r) r -1) state]))
 
+(def ^:private ^{:doc ""}
+  REAL-BITS 256)
+
 (defn rand-real
-  "Generate a pseudo-random, uniformly distributed real in the range [0 1).
-  Because this is calculated from a single byte only 256 distinct values are
-  possible."
+  "Generate a pseudo-random, uniformly distributed real in the range [0 1)."
   [n state]
-  (let [[r state] (rand-bits 8 state)]
-    [(* n (/ r 256.0)) state]))
+  (let [[r state] (rand-bits REAL-BITS state)]
+    [(* n (float (/ r REAL-BITS))) state]))
 
 
 ;; ## Byte stream

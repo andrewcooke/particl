@@ -81,7 +81,7 @@ the mosaic(s).
 (defn convert-int
   "Convert all numerical options to integers."
   [options]
-  (let [names #{:tile-number :tile-size :border-width :raw :holes}]
+  (let [names #{:tile-number :tile-size :border-width :raw :holes }]
     (apply merge
       (for [[k v] options]
         {k (if (and v (names k)) (parse-int v k) v)}))))
@@ -235,10 +235,10 @@ the mosaic(s).
   the image, given the hash.  The range of values is then reduced by the
   normalize function."
   [options n]
-  (let [normalize (select-normalize options)]
-    (key-case [:builder options]
-      "rectangle" [(rectangle n) normalize]
-      "fourier" [(fourier n) normalize])))
+  (key-case [:builder options]
+    "pair" [(rectangle-pair n) (noise n)]
+    "rectangle" [(rectangle n) (no-pre-editor n)]
+    "fourier" [(fourier n) (no-pre-editor n)]))
 
 (defn select-render
   "The render function expands the output from the builder to HSL pixels.
@@ -268,6 +268,7 @@ the mosaic(s).
         hash (:hash-algorithm options)]
     [(select-input options hash args)
      (select-builder options n)
+     (select-normalize options)
      (select-render options n)
      (select-display options)]))
 
@@ -290,7 +291,7 @@ the mosaic(s).
     ["--border-red" "Border red component (0-255)"]
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
-    ["--builder" "How image is built (rectangle, fourier)"]
+    ["--builder" "Image algorithm (rectangle, fourier, pair)"]
     ["--normalize" "Image normalisation (histogram, sigmoid)"]
     ["--grey" "Greyscale images" :flag true]
     ["--raw" "Basic format, fixed hue (0-255)"]

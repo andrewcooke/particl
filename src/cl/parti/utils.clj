@@ -90,12 +90,33 @@ Various utilitiy functions.
 ;; An exception to the above is in the `analysis` module, where triangular
 ;; samples are extracted as sequences of bytes.
 
-(defn map-rows
+(defn map-2
   "The 2D mosaic is generally modelled as sequences of sequences.  This
   defines a shape-preserving map over the values."
   [f rows]
   (for [row rows]
     (for [col row] (f col))))
+
+(defn reduce-2
+  [f zero rows]
+  (reduce (fn [acc row] (reduce f acc row)) zero rows))
+
+; NOT LAZY
+(defn map-state
+  ([f state row] (map-state f state row []))
+  ([f state row acc]
+    (if-let [row (seq row)]
+      (let [[value state] (f state (first row))]
+        (recur f state (rest row) (conj acc value)))
+      [acc state])))
+
+(defn map-state-2
+  [f state rows]
+  (map-state (fn [state row] (map-state f state row)) state rows))
+
+(defn zip-2
+  [a b]
+  (map (fn [row-a row-b] (map vector row-a row-b)) a b))
 
 (defn nth-2
   [colln [x y]]
@@ -108,6 +129,16 @@ Various utilitiy functions.
   (let [row (rows y)
         val (f (row x))]
     (assoc rows y (assoc row x val))))
+
+(defn rotate-2
+  "Rotate the rows.
+
+Rendered images are diagonally symmetric so have two distinct orientations."
+  [n rows]
+  (let [m (dec n)]
+    (for [j (range n)]
+      (for [i (range n)]
+        (nth (nth rows (- m i)) j)))))
 
 (defmacro dopar [seq-expr & body]
   (assert (= 2 (count seq-expr)) "single pair of forms in sequence expression")

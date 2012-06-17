@@ -15,3 +15,13 @@
     (is (= i (unsign-byte (sign-byte i)))))
   (doseq [i (range -128 128)]
     (is (= i (sign-byte (unsign-byte i))))))
+
+(deftest test-map-state
+  (is (= [[0 1 2] 3]
+        (map-state (fn [state x] [state (inc state)]) 0 [:a :b :c]))))
+
+(deftest test-map-state-2
+  (is (= [[[0 1] [2 3]] 4]
+        (map-state-2 (fn [state x] [state (inc state)]) 0 [[:a :b] [:c :d]]))))
+
+(run-tests)

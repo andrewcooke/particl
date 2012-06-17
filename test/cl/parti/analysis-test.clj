@@ -20,14 +20,23 @@
 ;  (is (= [[1 3] [2 3] [3 3] [2 2]] (bottom 4)))
 ;  (is (= [[1 4] [2 4] [3 4] [4 4] [2 3] [3 3]] (bottom 5))))
 
-(def do-dump-single
-  (partial dump-single normalize-histogram rectangle (print-tick 100)))
+;(deftest test-difference
+;  (is (= -4 (difference [[0 0] [0 0]] [[1 1] [1 1]])))
+;  (is (= 6 (difference [[1 2] [3 4]] [[1 1] [1 1]]))))
 
-(deftest test-dump
-;  (println (macroexpand '(dopar [n (range 7 11)]
-;    (time (do-dump-single "/tmp/single" "a" n 10000000))))))
-  (dopar [n (range 7 11)]
-    (time (do-dump-single "/tmp/single" "a" n 10000000))))
+;(def do-lower
+;  (partial dump-lower normalize-histogram rectangle (print-tick 100)))
+;
+;(deftest test-lower
+;  (dopar [n (range 7 11)]
+;    (time (do-lower "/tmp/lower" "a" n 10000000))))
+
+(def do-difference
+  (partial dump-difference normalize-histogram no-pre-editor rectangle (print-tick 10)))
+
+(deftest test-difference
+  (dopar [n [5 6 7 8 9 10 15 20 25 30]]
+    (time (do-difference "/tmp/diff3" "a" n 100000))))
 
 ;(defn top
 ;  [in out prefix n bits n-samples startup]
