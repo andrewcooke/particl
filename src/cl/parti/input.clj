@@ -8,7 +8,8 @@ Manage input to the mosaic pipeline.
   (:use (cl.parti utils random))
   (:use clojure.math.numeric-tower)
   (:use clojure.java.io)
-  (:import java.security.MessageDigest))
+  (:import java.security.MessageDigest)
+  (:import java.io.BufferedReader))
 
 ;; ## Hash functions
 ;;
@@ -61,22 +62,39 @@ Manage input to the mosaic pipeline.
   [hash args]
   (for [path args]
     (with-open [stream (input-stream path)]
-      (hash stream))))
+      [(hash stream) path])))
 
 (defn literal-reader
   "Treat each command line argument as a different string that should be
   hashed."
   [hash args]
-  (map hash args))
+  (map (fn [arg] [(hash arg) arg]) args))
+
+(defn literal2-reader
+  [hash args]
+  (map (fn [[arg1 arg2]] [(hash arg1) arg2]) (partition 2 args)))
 
 (defn line-reader
   "Read each line from stdin as a separate value to be hashed."
   [hash _]
-  (error "stdin not implemented"))
+  (let [lines (line-seq (java.io.BufferedReader. *in*))]
+    (map (fn [line] [(hash line) line]) lines)))
+
+(defn line2-reader
+  [hash _]
+  (let [lines (line-seq (java.io.BufferedReader. *in*))]
+    (map (fn [[line1 line2]] [(hash line1) line2]) (partition 2 lines))))
 
 (defn stdin-reader
   "Read the entire contents of stdin as a single value to be hashed."
   [hash _]
   (error "stdin not implemented"))
 
-
+(defn with-counter
+  [reader]
+  (let [counter (atom 0)]
+    (fn [hash args]
+      (for [[state arg] (reader hash args)]
+        (let [n @counter]
+          (swap! counter inc)
+          [state n arg])))))

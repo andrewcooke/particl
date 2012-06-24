@@ -90,9 +90,10 @@ the mosaic(s).
   "Validate that the number of tiles along one side of a mosaic lies within
   a reasonable range."
   [options]
-  (when-let [n (:tile-number options)]
-    (assert-range n 4 32 "--tile-number"))
-  options)
+  (let [upper (if (= "fourier" (:builder options)) 1000 32)]
+    (when-let [n (:tile-number options)]
+      (assert-range n 4 upper "--tile-number"))
+    options))
 
 (defn check-hash-algorithm
   "The 'hex' input type implies that a hash has already been calculated.
@@ -117,6 +118,7 @@ the mosaic(s).
 ;; we select the 'hash' style, which is more secure (contains more detail).
 (defn-defaults [set-style-1 :input-type ]
   "word" {:style "user"}
+  "word/2" {:style "user"}
   :else {:style "hash"})
 
 (def ^:private
@@ -219,10 +221,14 @@ the mosaic(s).
   selected together, based on the 'input-type' option and the presence of
   command line arguments."
   [options hash args]
-  (key-case [:input-type options]
-    "hex" [(if args literal-reader line-reader) (hex-hash hash)]
-    "word" [(if args literal-reader line-reader) (word-hash hash)]
-    "file" [(if args file-reader stdin-reader) (stream-hash hash)]))
+  (let [[reader hash]
+    (key-case [:input-type options]
+      "hex" [(if args literal-reader line-reader) (hex-hash hash)]
+      "hex/2" [(if args literal2-reader line2-reader) (hex-hash hash)]
+      "word" [(if args literal-reader line-reader) (word-hash hash)]
+      "word/2" [(if args literal2-reader line2-reader) (word-hash hash)]
+      "file" [(if args file-reader stdin-reader) (stream-hash hash)])]
+    [(with-counter reader) hash]))
 
 (defn select-normalize
   [options]
@@ -291,7 +297,7 @@ the mosaic(s).
     ["--border-red" "Border red component (0-255)"]
     ["--border-green" "Border green component (0-255)"]
     ["--border-blue" "Border blue component (0-255)"]
-    ["--builder" "Image algorithm (rectangle, fourier, pair)"]
+    ["--builder" "Algorithm (rectangle, fourier, pair)"]
     ["--normalize" "Image normalisation (histogram, sigmoid)"]
     ["--grey" "Greyscale images" :flag true]
     ["--raw" "Basic format, fixed hue (0-255)"]

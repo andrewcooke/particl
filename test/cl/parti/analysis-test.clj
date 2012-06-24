@@ -24,31 +24,57 @@
 ;  (is (= -4 (difference [[0 0] [0 0]] [[1 1] [1 1]])))
 ;  (is (= 6 (difference [[1 2] [3 4]] [[1 1] [1 1]]))))
 
-;(def do-lower
-;  (partial dump-lower normalize-histogram rectangle (print-tick 100)))
+;(def do-difference
+;  (partial dump-difference-bits normalize-histogram no-pre-editor rectangle
+;    (print-tick 10)))
+;
+;(deftest test-difference
+;  (dopar [n [5 6 7 8 9 10 15 20 25 30]]
+;    (time (do-difference "/home/andrew/projects/personal/particl/data/diff"
+;            n "a" 100000))))
+
+(def do-lower
+  (partial dump-lower normalize-histogram no-pre-editor rectangle
+    (print-tick 100)))
 ;
 ;(deftest test-lower
 ;  (dopar [n (range 7 11)]
-;    (time (do-lower "/tmp/lower" "a" n 10000000))))
+;    (time (do-lower "/home/andrew/projects/personal/particl/data/dump" n "a" 10000000))))
 
-(def do-difference
-  (partial dump-difference normalize-histogram no-pre-editor rectangle (print-tick 10)))
+(deftest test-lower
+  (dopar [n (range 15 26 5)]
+    (time (do-lower "/home/andrew/projects/personal/particl/data/dump" n "a" 10000000))))
 
-(deftest test-difference
-  (dopar [n [5 6 7 8 9 10 15 20 25 30]]
-    (time (do-difference "/tmp/diff3" "a" n 100000))))
+(defn top
+  [in out n infix bits n-samples startup]
+  (let [best (nearest-in-dump (print-tick 1000) in n bits n-samples startup 1)]
+    (with-open [w (writer out)]
+      (doseq [[[a b] m] best]
+        (let [a (str n infix a)
+              b (str n infix b)
+              diff
+              (pair-difference normalize-histogram no-pre-editor rectangle
+                infix n a b)]
+          (.write w (str a " " b " " m " " diff "\n")))))))
 
-;(defn top
-;  [in out prefix n bits n-samples startup]
-;  (let [best (nearest-in-dump (print-tick 1000) in n bits n-samples startup 1)]
-;    (with-open [w (writer out)]
-;      (doseq [[[a b] m] best] (.write w (str prefix a " " prefix b " " m "\n"))))))
+;(deftest test-top-7
+;  (time (top "/home/andrew/projects/personal/particl/data/dump-7-a.dmp"
+;          "/home/andrew/projects/personal/particl/data/dump-7-a.best"
+;          7 "a" 3 12 3)))
 
-;(def dump-rectangle
-;  (partial dump-single normalize-histogram rectangle (print-tick 100)))
-;
-;(deftest test-dump-9
-;  (time (dump-rectangle "/tmp/a-4.dmp" "a" 4 10000000)))
+;(deftest test-top
+;  (doseq [n (range 7 11)]
+;    (let [in (str "/home/andrew/projects/personal/particl/data/dump-" n "-a.dmp")
+;          out (str "/home/andrew/projects/personal/particl/data/dump-" n "-a.best")]
+;      (time
+;        (top in out n "a" 3 12 3)))))
+
+;(deftest test-top
+;  (doseq [n (range 9 11)]
+;    (let [in (str "/home/andrew/projects/personal/particl/data/dump-" n "-a.dmp")
+;          out (str "/home/andrew/projects/personal/particl/data/dump2-" n "-a.best")]
+;      (time
+;        (top in out n "a" 2 20 5)))))
 
 ;(deftest test-top-9
 ;  (time (top "/tmp/rectangle-9-n.dmp" "/tmp/rectangle-9-n.best" "d" 9 3 12 3)))

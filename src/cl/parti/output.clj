@@ -285,18 +285,20 @@ the maximum number of colours is significantly less.
 It might pay to count the number of distinct colours if we can extend to
 20x20 mosaics (corresponding to the 'hash' style)."
   [path]
-  (let [index (atom 0)]
-    (fn [[bg rows state]]
-      (when (and (= @index 1) (= -1 (.indexOf path "%d")))
-        (printf "WARNING: Multiple output images but no '%%d' in --output\n"))
-      (with-open [os (output-stream (format path @index))]
+  (fn [[bg rows state] n arg]
+    (let [path
+          (cond
+            (< -1 (.indexOf path "%d")) (format path n)
+            (< -1 (.indexOf path "%s")) (format path arg)
+            :else (do (when (= 1 n)
+                        (printf "WARNING: No '%%d' or '%%s' in --output\n"))
+                    path))]
+      (with-open [os (output-stream path)]
         (let [n (count rows)
               print (if (< n 17) (print-png-indexed os) (print-png-8-bit os))]
-          (print-rows print rows)))
-      (swap! index inc))))
+          (print-rows print rows))))))
 
 (defn gui-display
   "Display the image directly to the user (unimplemented)."
   [& args]
   (error "gui display"))
-

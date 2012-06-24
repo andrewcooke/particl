@@ -14,7 +14,8 @@ Assemble the pipeline components to generate mosaics.
   "Generate a pipeline from the following components:
 
   - *reader* extracts values from command line args or stdin and then applies
-    the hash;
+    the hash - it also returns a counter and the argument itself, in case
+    these are needed by the display component;
   - *hash* hashes the values;
   - *builder* constructs the mosaic, in an internal format, from the hash;
   - *pre-editor* modified the internal format;
@@ -31,8 +32,9 @@ The types of return values could vary, as long as the different components
 interact correctly, but are currently consistent for each stage."
   [reader hash builder pre-editor normalize render post-editor display]
   (fn [args]
-    (doseq [state (reader hash args)]
-      (-> state builder pre-editor normalize render post-editor display))))
+    (doseq [[state n arg] (reader hash args)]
+      (-> state builder pre-editor normalize render post-editor
+        (display n arg)))))
 
 (defn -main
   "Combine the pipeline above with the command line option handling in

@@ -171,7 +171,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
   (fn [state]
     (let [[rows state]
           (repeated-transform
-            rand-4 (manhattan-delta n) shift-rectangle n (expt n 3) state)
+            rand-4 (manhattan-delta n) shift-rectangle n (expt n 2) state)
           norm (* NORM (expt n 1.5))]
       [norm (reflect n rows) state])))
 

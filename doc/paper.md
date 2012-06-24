@@ -4,6 +4,14 @@
 
 # Introduction 
 
+What is a graphical hash?  What properties apply to them (parallel to crypto
+hashes)?
+
+If we assume that all possible images are generated uniformly then the
+effective hash size of a graphical image is the number of practically distinct
+images.
+
+
 - Contributions
 
     - Architecture
@@ -29,8 +37,8 @@ the resulting stream of random bits is then used to construct the image.
 An input hash of length $l$ is zero--padded and used to key $\lceil l/128
 \rceil$ AES ciphers (128 bit key) in counter mode, following
 [RFC3686](http://www.faqs.org/rfcs/rfc3686.html).  The nonce and IV for the
-$n$th cipher (zero indexed) are taken from the SHA-1 hash of $n$.  Output from
-the ciphers is merged using bitwise exclusive--or.
+$n$th cipher are taken from the SHA-1 hash of $n-1$.  Output from the ciphers
+is merged using bitwise exclusive--or.
 
 This construction is intended to provide a secure, unlimited, repeatable
 sequence of pseudo--random bits that has an avalanche for all bits in the
@@ -94,7 +102,93 @@ symmetry to the other diagonal.
 Finally, the data are expanded to give multiple pixels per value (to fill each
 tile) and padded with the background colour.
 
-# Hash Size
+# Hash Size and Collisions
+
+## Ballpark Estimates
+
+Pixels are generated as offsets in hue and lightness (either correlated or
+anti--correlated) relative to some base value.  If a user can distinguish
+$N_H$ base hues then before considering pixel values we have $2 N_H$ possible
+images.
+
+If the offset for each pixel is independent, and a user can distinguish
+between $N_p$ different values, then there are $2 N_H N_p^{n^2}$ possible
+images.  Diagonal symmetry reduces this to $4 N_H N_p^{n(n+1)/2}$.
+
+But pixels are not independent.  A more realistic model might describe
+lightness as the sum of levels at various scales.  Below are two size
+estimates, focussing on small and large scales, respectively.
+
+A power law distribution of scales is numerically dominated by small regions
+(pixels).  So if we consider each region to be independent then the we have
+$\sim 4 N_H N_r^{n(n+1)/2}$ images, where $N_r$ is the number of possible
+values per region.  But for different scales to be distinguished --- for the
+larger features to stand out from the pixel--to--pixel noise --- we must
+emphasize the lower frequencies.  This reduces the available dynamic range to
+the smaller, more numerous regions.  So $N_r$ is restricted to, perhaps, 2
+bits, rather than the 6 or 7 a user might distinguish for an isolated pixel.
+
+If $n=16$, $N_p=4$ and $N_H=32$ then we have a "hash size" of $4\times
+32\times 4^{16\times15 / 2} = 2^{247}$.
+
+The "impression" of an image --- what can be easily remembered --- is
+dominated by a small number of large scale structures, whose absolute
+intensities are obscured by the small--scale pixel variations.  From this
+perspective, there are effectively only $4 N_H N_l^{m(m+1)/2}$ where $N_l$ is
+the number of distinct, large scale intensities and $m$ is the spatial
+frequency of the structure.
+
+If $n=16$, $m=2$ $N_l=8$ and $N_H=32$ then we have a "hash size" of $4\times
+32\times 8^{3} = 2^{16}$.
+
+## Bits Consumed
+
+![Distribution of bits consumed by mosaic size.  The y--axis is
+${\rm bits}/n^2$.](bits.pdf)
+
+The number of bits consumed from the PRNG is roughly $5 \lceil\log_2 n\rceil
+n^2$, since each of the $n^2$ iterations of the image builder requires two
+coordinates and a distance, all of size $\sim n$.
+
+Counter--intuitively, the normalized number of bits consumed increases with
+smaller $n$ for any given value of $\lceil\log_2 n\rceil$.  This is because
+more bits are discarded to generate unbiased variates for smaller $n$.  For
+example, to generate a random value $< 5$, a 3--bit integer is read.  If that
+value is $\ge 5$ it is discarded and a new value read.
+
+In any case, the total number of bits rapidly exceeds the size of the initial,
+numerical hash as $n$ increases and, for practical mosaics, does not
+constraint the variety of available images.
+
+## Searching for Collisions
+
+Hash size can be inferred from the number of collisions in a random sample.
+This is only feasible for small mosaics, where collisions can be found in a
+reasonable time.
+
+For various mosaic sizes, a set of $10^7$ mosaics was generated and saved in a
+compact binary format.  Similar images were then identified using
+locality--sensitive hashing; repeating the hashing and counting matches per
+pair allowed the candidate matches to be ordered for visual inspection.
+
+The mosaics were stored as byte arrays, with one byte per pixel, storing only
+the diagonal and lower triangle.  Normalized pixels, $(-1, 1)$, were mapped
+linearly to unsigned bytes, $[0, 255]$.
+
+The hash was constructed from the most significant bits of values at random
+locations (without replacement) in the byte arrays.  The numbers of locations
+and bits were hand--tuned to give a reasonable number of matches.  Locations
+were varied on each iteration.
+
+## L_2 Difference
+
+![ECDF by mosaic size](ecdf-1.pdf)
+
+![ECDF detail](ecdf-3.pdf)
+
+
+
+
 
 - Ballpark estimates
 
@@ -121,3 +215,17 @@ tile) and padded with the background colour.
     - Wasn't Gaussian (Q-Q plots) - too many close outliers
 
     - Pair + noise didn't help
+
+## Comparison Classes
+
+The "size" of a graphical hash can be defined as the reciprocal of the
+probability of *apparent* collision.  However, whether two images appear equal
+will depend on context.  There are two broad classes:
+
+#. Two images displayed together.
+
+#. Comparison of a displayed image with one from memory.
+
+These overlap considerably --- even when both images are visible, conscious
+focus is sequential and relies on short--term memory.  
+

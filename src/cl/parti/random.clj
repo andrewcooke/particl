@@ -72,7 +72,7 @@ knowledgeable than me.
   "The byte stream is converted to bits in the order expected when displayed
   from left to right.  So the blocks are converted in the order they are
   generated; for each block the bytes are taken in array index order; for
-  each byte the buts are taken from most to least significant bit."
+  each byte the bits are taken from most to least significant bit."
   ([bytes] (stream-bits (first bytes) 8 (rest bytes)))
   ([bits available bytes]
     (fn [required]
@@ -125,7 +125,7 @@ has a meaningless value."}
       :else (recur (/ n 256) (+ acc 8)))))
 
 (defn rand-bits
-  "Similar to `rand-int`, returns a pseudo-random value from the semi-open
+  "Similar to `rand-int`, returns a pseudo-random integer from the semi-open
   [0 maximum).
 
   The minimum number of bits necessary to represent the largest return
@@ -134,13 +134,13 @@ has a meaningless value."}
   This gives an unbiased, uniformly distributed value, assuming that the
   bit stream itself is unbiased."
   [maximum state]
-  (let [size (n-bits (dec maximum))]aes
+  (let [size (n-bits (dec maximum))]
     (loop [state state]
       (let [[r state] (state size)]
         (if (< r maximum) [r state] (recur state))))))
 
 (defn rand-bits-symmetric
-  "Return a pseudo-random value from [-maximum maxiumum]."
+  "Return a pseudo-random integer from [-maximum maxiumum]."
   [maximum state]
   (let [[r state] (rand-bits (inc (* 2 maximum)) state)]
     [(- r maximum) state]))

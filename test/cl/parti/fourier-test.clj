@@ -4,6 +4,6 @@
 
 
 (deftest test-fourier
-  (-main "-v" "-r" "fourier" "-i" "word" "-o" "/tmp/fourier-test.png" "abc"))
+  (-main "-v" "--builder" "fourier" "-i" "word" "-o" "/tmp/fourier-test.png" "ab"))
 
 (run-tests)

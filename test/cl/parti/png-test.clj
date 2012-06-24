@@ -1,6 +1,6 @@
 (ns cl.parti.png-test
   (:use clojure.java.io)
-  (:use (cl.parti hsl mosaic random png))
+  (:use (cl.parti hsl random png))
   (:use clojure.test))
 
 

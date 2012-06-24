@@ -27,7 +27,7 @@ which reduces the search space needed to identify collisions.
 ;; A database provides faster access than generating on the fly (it takes
 ;; about 10 hours to generate a million 20x20 mosaics on my laptop).
 
-;; #### Stream of mosaics
+;; ### Stream of mosaics
 
 (defn print-tick
   "Print some output to stdout as a task runs."
@@ -55,22 +55,32 @@ which reduces the search space needed to identify collisions.
   [x]
   (sign-byte (int (* (/ 255.99 2) (+ 1 x)))))
 
-(defn- mosaic-stream
-  ([n prefix normalize editor builder tick]
-    (let [hash (word-hash "SHA-1")
-          builder (builder n)
-          editor (editor n)]
-      (mosaic-stream n prefix normalize editor builder tick hash 0)))
-  ([n prefix normalize editor builder tick hash offset]
-    (lazy-seq
-      (cons
-        (let [state (hash (str prefix offset))
-              [rows state] (-> state builder editor normalize)]
-          (tick offset)
-          (map-2 to-byte rows))
-        (mosaic-stream n prefix normalize editor builder tick hash (inc offset))))))
+(defn- mosaics-from-hash
+  [n infix normalize editor builder tick hash offset]
+  (lazy-seq
+    (cons
+      (let [state (hash (str n infix offset))
+            [rows state] (-> state builder editor normalize)]
+        (tick offset)
+        (map-2 to-byte rows))
+      (mosaics-from-hash
+        n infix normalize editor builder tick hash (inc offset)))))
 
-;; #### Extract data to save
+(defn- mosaic-stream
+  [n infix normalize editor builder tick to-stream]
+  (let [hash (word-hash "SHA-1")
+        builder (builder n)
+        editor (editor n)]
+    (to-stream n infix normalize editor builder tick hash 0)))
+
+(defn- mosaic
+  [n normalize editor builder word]
+  (let [hash (word-hash "SHA-1")
+        state (hash word)
+        builder (builder n)
+        editor (editor n)
+        [rows state] (-> state builder editor normalize)]
+    (map-2 to-byte rows)))
 
 (defn lower
   [n [x y]]
@@ -116,7 +126,7 @@ which reduces the search space needed to identify collisions.
   [n]
   (/ (* n (inc n)) 2))
 
-;; #### Write lower triangle
+;; ### Write lower triangle
 
 (defn byte-sink
   [out pickers]
@@ -125,33 +135,85 @@ which reduces the search space needed to identify collisions.
       (.write out (byte-array (picker rows))))))
 
 (defn dump-lower
-  [normalize builder tick path prefix n count]
-  (let [mosaics (mosaic-stream n prefix normalize builder tick)
-        path (format "%s-%s-%d.dmp" path prefix n)]
+  [normalize editor builder tick path n infix count]
+  (let [mosaics
+        (mosaic-stream n infix normalize editor builder tick mosaics-from-hash)
+        path (format "%s-%d-%s.dmp" path n infix)]
     (with-open [out (FileOutputStream. path Boolean/FALSE)]
       (let [sink (byte-sink out [(make-pick-bytes (lower n [0 0]))])]
         (doseq [mosaic (take count mosaics)]
           (sink mosaic))))))
 
-;; #### Differences
+;; ### Differences
 
 (defn difference
   [a b]
-  (reduce-2 (fn [z [a b]] (+ z (Math/abs (- a b)))) 0 (zip-2 a b)))
+  (let [d
+        (reduce-2
+          (fn [z [a b]] (let [d (- a b)] (+ z (* d d))))
+          0 (zip-2 a b))]
+    [(Math/sqrt d)]))
 
 (defn fmt-pair-sink
   [out fmt f]
   (fn [[a b]]
-    (.write out (format fmt (f a b)))))
+    (.write out (apply (partial format fmt) (f a b)))))
 
 (defn dump-difference
-  [normalize editor builder tick path prefix n count]
-  (let [mosaics (mosaic-stream n prefix normalize editor builder tick)
-        path (format "%s-%s-%d.txt" path prefix n)]
+  [normalize editor builder tick path infix n count]
+  (let [mosaics
+        (mosaic-stream n infix normalize editor builder tick mosaics-from-hash)
+        path (format "%s-%d-%s.txt" path n infix)]
     (with-open [out (FileWriter. path Boolean/FALSE)]
-      (let [sink (fmt-pair-sink out "%d\n" difference)]
+      (let [sink (fmt-pair-sink out "%f\n" difference)]
         (doseq [pair (take count (partition 2 mosaics))]
           (sink pair))))))
+
+(defn pair-difference
+  [normalize editor builder infix n a b]
+  (let [a (mosaic n normalize editor builder a)
+        b (mosaic n normalize editor builder b)]
+    (first (difference a b))))
+
+;; ### Track bit consumption
+
+(defn track-bits
+  [state]
+  (let [n (atom 0)]
+    (letfn [(tracker [state]
+              (fn [required]
+                (let [[r state] (state required)]
+                  (swap! n #(+ required %))
+                  [r (tracker state)])))]
+      [n (tracker state)])))
+
+(defn- mosaics-and-bits-from-hash
+  [n infix normalize editor builder tick hash offset]
+  (lazy-seq
+    (cons
+      (let [[bits state] (track-bits (hash (str n infix offset)))
+            [rows state] (-> state builder editor normalize)]
+        (tick offset)
+        [@bits (map-2 to-byte rows)])
+      (mosaics-and-bits-from-hash
+        n infix normalize editor builder tick hash (inc offset)))))
+
+(defn difference-bits
+  [[na a] [nb b]]
+  (let [[d] (difference a b)]
+    [d na nb]))
+
+(defn dump-difference-bits
+  [normalize editor builder tick path n infix count]
+  (let [mosaics
+        (mosaic-stream n infix normalize editor builder tick
+          mosaics-and-bits-from-hash)
+        path (format "%s-%d-%s.txt" path n infix)]
+    (with-open [out (FileWriter. path Boolean/FALSE)]
+      (let [sink (fmt-pair-sink out "%f %d %d\n" difference-bits)]
+        (doseq [pair (take count (partition 2 mosaics))]
+          (sink pair))))))
+
 
 ;(defn dump-pair
 ;  [normalize render tick path prefix n count]
@@ -296,7 +358,7 @@ which reduces the search space needed to identify collisions.
 (defn- select-samples
   "Generate indices into the pattern for the samples.
 
-  A `java.util.Random` is used to provide a repeatable sequence."
+A `java.util.Random` is used to provide a repeatable sequence."
   ([n random from] (select-samples n random from []))
   ([n random from samples]
     (if (zero? n)
@@ -317,7 +379,7 @@ which reduces the search space needed to identify collisions.
 
 (defn- select-hash
   "Loop over all samples, sampling the pattern, and masking the values.
-  Coallesce the bits used into a single long hash."
+Coallesce the bits used into a single long hash."
   ([bits samples mask buffer] (select-hash bits samples mask buffer 0))
   ([bits samples mask buffer hash]
     (let [samples (seq samples)]
@@ -330,10 +392,10 @@ which reduces the search space needed to identify collisions.
 
 (defn- make-hash
   "Construct a function that will be 'reduced' over the database, accumulating
-  the hashes for all images in a single pass (with a single selection).
+ the hashes for all images in a single pass (with a single selection).
 
-  The output here is a map from hash to all image indices with that hash
-  (all 'neighbours')"
+ The output here is a map from hash to all image indices with that hash
+ (all 'neighbours')"
   [n bits n-samples path random]
   (assert (<= (* bits n-samples) 64))
   (let [mask (make-mask bits)
@@ -350,8 +412,8 @@ which reduces the search space needed to identify collisions.
 
 (defn- pack
   "Reduce a pair of image indices to a single long value.  This saves space
-  and allows the use of a primitive types collection to map from pairs to
-  the number of times they are associated."
+and allows the use of a primitive types collection to map from pairs to
+the number of times they are associated."
   [size n1 n2]
   (+ (* size n1) n2))
 
@@ -362,15 +424,15 @@ which reduces the search space needed to identify collisions.
 
 (defn- collect
   "Iterate over the neighbour information, expanding the neighbours into
-  pairs, and incrementing the count for each pair.
+pairs, and incrementing the count for each pair.
 
-  Detailed behaviour changes, depending on whether the iteration number
-  `iter` is within the `startup` period: initially all pairs are added
-  to the map, but once the startup period ends only existing pairs are
-  incremented.
+Detailed behaviour changes, depending on whether the iteration number
+`iter` is within the `startup` period: initially all pairs are added
+to the map, but once the startup period ends only existing pairs are
+incremented.
 
-  The map from pairs to count is a mutable, primitive type map for
-  (memory and cpu) efficiency."
+The map from pair to count is a mutable, primitive type map for
+(memory and cpu) efficiency."
   [size matches [iter startup] [_ hashes]]
   (println (count hashes) "sets of neighbours")
   (doseq [nbrs (map (comp int-array sort) (vals hashes))]
@@ -421,7 +483,7 @@ which reduces the search space needed to identify collisions.
         (sort-by second
           (map
             (fn [key] [(unpack size key) (.get matches key)])
-            (filter (fn [key] (> (.get matches key) (* 0.25 best)))
+            (filter (fn [key] (> (.get matches key) (* 0.1 best)))
               (.keys matches))))))))
 
 (defn- measure

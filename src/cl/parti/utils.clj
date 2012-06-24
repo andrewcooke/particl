@@ -73,6 +73,15 @@ Various utilitiy functions.
   [list]
   (apply concat list))
 
+(defn lazy-open [file]
+  (defn helper [rdr]
+    (lazy-seq
+      (if-let [line (.readLine rdr)]
+        (cons line (helper rdr))
+        (do (.close rdr) nil))))
+  (lazy-seq
+    (helper (clojure.java.io/reader file))))
+
 ;; ## Data Structures
 ;;
 ;; Much of the code here deals with a 'mosaic' in various forms.  This is
