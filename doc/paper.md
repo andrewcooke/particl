@@ -2,7 +2,7 @@
 % Andrew Cooke (andrew@acooke.org)
 % June 16 2012
 
-# Introduction 
+# Introduction
 
 What is a graphical hash?  What properties apply to them (parallel to crypto
 hashes)?
@@ -17,6 +17,8 @@ images.
     - Architecture
 
     - Possible algorithm
+
+    - Scaling arguments for size estimation
 
     - Experience on what does not work
 
@@ -160,6 +162,11 @@ In any case, the total number of bits rapidly exceeds the size of the initial,
 numerical hash as $n$ increases and, for practical mosaics, does not
 constraint the variety of available images.
 
+## Generation Rate
+
+Data rate roughly constant (slows slightly with size - 30% decrease from
+n=5 to 10).
+
 ## Searching for Collisions
 
 Hash size can be inferred from the number of collisions in a random sample.
@@ -229,3 +236,8 @@ will depend on context.  There are two broad classes:
 These overlap considerably --- even when both images are visible, conscious
 focus is sequential and relies on short--term memory.  
 
+## Future Work
+
+Perhaps just informed comment from other areas?
+
+Comparison of images.

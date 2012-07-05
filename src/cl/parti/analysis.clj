@@ -472,12 +472,12 @@ The map from pair to count is a mutable, primitive type map for
           (unpack size key))))))
 
 (defn- complete-many
-  [size [iter startup] matches]
+  [size [iter startup shutdown] matches]
   (println "iteration" iter "(startup" startup ") with" (.size matches) "matches")
   (let [candidates (sort rev-compare (.values matches))
         best (first candidates)]
     (println "top match at" best)
-    (if (< iter (* 10 startup))
+    (if (< iter shutdown)
       (do (println "too few iterations") nil)
       (reverse
         (sort-by second
@@ -492,13 +492,14 @@ The map from pair to count is a mutable, primitive type map for
   (/ (.length (File. path)) (triangle-size n)))
 
 (defn nearest-in-dump
-  ([tick path n bits n-samples startup seed]
+  ([tick path n bits n-samples startup shutdown seed]
     (let [size (measure path n)]
-      (nearest-in-dump tick path n bits n-samples size [0 startup] (Random. seed) (TLongByteHashMap.))))
-  ([tick path n bits n-samples size [iter startup] random matches]
-    (if-let [results (complete-many size [iter startup] matches)]
+      (nearest-in-dump tick path n bits n-samples size [0 startup shutdown]
+        (Random. seed) (TLongByteHashMap.))))
+  ([tick path n bits n-samples size [iter startup shutdown] random matches]
+    (if-let [results (complete-many size [iter startup shutdown] matches)]
       results
-      (recur tick path n bits n-samples size [(inc iter) startup] random
+      (recur tick path n bits n-samples size [(inc iter) startup shutdown] random
         (collect size matches [iter startup]
           (reduce-dump
             tick

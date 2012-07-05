@@ -83,7 +83,7 @@ render function (`cl.parti.output`) will later convert these values to colours.
   [n]
   (let [m (manhattan n)]
     (fn [location state]
-      (let [d (inc (m location))]
+      (let [d (+ (m location) n)]
         (rand-bits-symmetric d state)))))
 
 (defn- parameters
