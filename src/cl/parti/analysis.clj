@@ -426,14 +426,12 @@ the number of times they are associated."
   "Iterate over the neighbour information, expanding the neighbours into
 pairs, and incrementing the count for each pair.
 
-Detailed behaviour changes, depending on whether the iteration number
-`iter` is within the `startup` period: initially all pairs are added
-to the map, but once the startup period ends only existing pairs are
-incremented.
+Initially all pairs are added to the map, but once 5 million pairs are
+known only existing pairs are incremented.
 
 The map from pair to count is a mutable, primitive type map for
 (memory and cpu) efficiency."
-  [size matches [iter startup] [_ hashes]]
+  [size matches iter [_ hashes]]
   (println (count hashes) "sets of neighbours")
   (doseq [nbrs (map (comp int-array sort) (vals hashes))]
     (let [n (count nbrs)]
@@ -445,7 +443,7 @@ The map from pair to count is a mutable, primitive type map for
             (let [pair (pack size (nth nbrs i) (nth nbrs j))]
               (let [value (.get matches pair)]
                 (if (zero? value)
-                  (when (< iter startup) (.put matches pair (byte 1)))
+                  (when (< (.size matches) 5000000) (.put matches pair (byte 1)))
                   (.put matches pair (byte (inc value)))))))))))
   matches)
 
@@ -456,24 +454,9 @@ The map from pair to count is a mutable, primitive type map for
   [a b]
   (* -1 (compare a b)))
 
-(defn- complete-one
-  [size [iter startup] matches]
-  (println "iteration" iter "(startup" startup ") with" (.size matches) "matches")
-  (if (< iter (* 2 startup))
-    (do (println "too few iterations") nil)
-    (let [candidates (sort rev-compare (.values matches))
-          best (first candidates)
-          second (second candidates)]
-      (println "top match at" best "next at" second)
-      (if (not (> best (inc second)))
-        (do (println "not good enough") nil)
-        (let [top (fn [key] (= best (.get matches key)))
-              key (first (filter top (.keys matches)))]
-          (unpack size key))))))
-
 (defn- complete-many
-  [size [iter startup shutdown] matches]
-  (println "iteration" iter "(startup" startup ") with" (.size matches) "matches")
+  [size [iter shutdown] matches]
+  (println "iteration" iter "with" (.size matches) "matches")
   (let [candidates (sort rev-compare (.values matches))
         best (first candidates)]
     (println "top match at" best)
@@ -492,15 +475,15 @@ The map from pair to count is a mutable, primitive type map for
   (/ (.length (File. path)) (triangle-size n)))
 
 (defn nearest-in-dump
-  ([tick path n bits n-samples startup shutdown seed]
+  ([tick path n bits n-samples shutdown seed]
     (let [size (measure path n)]
-      (nearest-in-dump tick path n bits n-samples size [0 startup shutdown]
+      (nearest-in-dump tick path n bits n-samples size [0 shutdown]
         (Random. seed) (TLongByteHashMap.))))
-  ([tick path n bits n-samples size [iter startup shutdown] random matches]
-    (if-let [results (complete-many size [iter startup shutdown] matches)]
+  ([tick path n bits n-samples size [iter shutdown] random matches]
+    (if-let [results (complete-many size [iter shutdown] matches)]
       results
-      (recur tick path n bits n-samples size [(inc iter) startup shutdown] random
-        (collect size matches [iter startup]
+      (recur tick path n bits n-samples size [(inc iter) shutdown] random
+        (collect size matches iter
           (reduce-dump
             tick
             (make-hash n bits n-samples path random)

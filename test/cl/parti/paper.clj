@@ -12,9 +12,9 @@
 ;    (time (do-lower "/home/andrew/project/particl/data/dump" n "a" 10000000))))
 
 (defn top
-  [in out n infix bits n-samples startup shutdown]
+  [in out n infix bits n-samples shutdown]
   (let [tick (print-tick 1000)
-        best (nearest-in-dump tick in n bits n-samples startup shutdown 1)]
+        best (nearest-in-dump tick in n bits n-samples shutdown 1)]
     (with-open [w (writer out)]
       (doseq [[[a b] m] (take 1000 best)]
         (let [a (str n infix a)
@@ -25,12 +25,13 @@
           (.write w (str a " " b " " m " " diff "\n")))))))
 
 (deftest test-top
-  (doseq [n (range 5 14)]
+  (doseq [n (range 12 16)]
     (let [in (str "/home/andrew/project/particl/data/dump-" n "-a.dmp")
           n-bits (cond (> n 8) 2 (> n 6) 3 :else 4)
           n-samples (min 20 (+ 3 (int (/ (* 20 n n) 100))))
-          out (str "/home/andrew/project/particl/data/dump-" n "-a-" n-bits "-" n-samples ".best")]
+          out (str "/home/andrew/project/particl/data/dump-" n "-a-" n-bits "-" n-samples ".best")
+          rpt (if (= n 5) 5 20)]
       (time
-        (top in out n "a" n-bits n-samples 20 20)))))
+        (top in out n "a" n-bits n-samples rpt)))))
 
 (run-tests)
