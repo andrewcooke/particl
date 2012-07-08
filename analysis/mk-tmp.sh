@@ -16,7 +16,7 @@ dump() {
        a=${line%% *}
        line=${line#* }
        b=${line%% *}
-       out=`printf "/tmp/nbr-%02d--%s-%d-%s-%%d.png" $n $tag $i $s`
+       out=`printf "/home/andrew/project/particl/data/manhattan/nbr-%02d-%s-%d-%s-%%d.png" $n $tag $i $s`
        echo "lein run -v -s hash --raw 0 --grey -a SHA-1 -n $n -o $out -i word $a $b"
        lein run -v -s hash --raw 0 --grey -a SHA-1 -n $n -o $out -i word $a $b
        (( i=$i + 1 ))
@@ -25,13 +25,14 @@ dump() {
    popd
 }
 
-cd /home/andrew/project/particl/data
-for n in 5 6 7 8 9 10 11 12 13 14
+cd /tmp
+for t in uniform both manhattan
 do
-    best=`ls dump-${n}*.best`
-    echo $best
-    head -3 $best > /tmp/best
-    dump /tmp/best $n "match"
-    sort -n -k 4,5 $best | head -3 > /tmp/best
-    dump /tmp/best $n "delta2"
+    for n in 5 10 15
+    do
+	best=`ls ${t}-${n}*.best`
+	echo $best
+	sort -n -k 4,5 $best | head -3 > /tmp/best
+	dump /tmp/best $n $t
+    done
 done

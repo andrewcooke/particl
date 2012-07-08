@@ -24,7 +24,7 @@ rd <- function(x, data) {
 }
 
 data <- list(n=c(), nmatches=c(), nbits=c(), delta2=c())
-ns <- c(5,6,7,8,9,10,11,12,13)
+ns <- c(5,6,7,8,9,10,11,12,13,14,15)
 for (n in ns) data <- rd(n, data)
 data <- data.frame(n=data$n, nmatches=data$nmatches, nbits=data$nbits, delta2=data$delta2)
 

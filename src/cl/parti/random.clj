@@ -191,8 +191,7 @@ want to access the key stream."}
 
 (defn- stream-blocks
   "Run the given cipher, generating a lazy stream of blocks.  The underlying
-  Java code increments the counter after each loop, generating a lazy stream
-  of blocks."
+  Java code increments the counter after each loop."
   [cipher]
   (lazy-seq
     (let [block (.update cipher BLANK)]

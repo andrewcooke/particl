@@ -33,29 +33,29 @@
 ;    (time (do-difference "/home/andrew/projects/personal/particl/data/diff"
 ;            n "a" 100000))))
 
-(def do-lower
-  (partial dump-lower normalize-histogram no-pre-editor rectangle
-    (print-tick 100)))
+;(def do-lower
+;  (partial dump-lower normalize-histogram no-pre-editor rectangle
+;    (print-tick 100)))
 ;
 ;(deftest test-lower
 ;  (dopar [n (range 7 11)]
 ;    (time (do-lower "/home/andrew/projects/personal/particl/data/dump" n "a" 10000000))))
 
-(deftest test-lower
-  (dopar [n (range 15 26 5)]
-    (time (do-lower "/home/andrew/projects/personal/particl/data/dump" n "a" 10000000))))
-
-(defn top
-  [in out n infix bits n-samples startup]
-  (let [best (nearest-in-dump (print-tick 1000) in n bits n-samples startup 1)]
-    (with-open [w (writer out)]
-      (doseq [[[a b] m] best]
-        (let [a (str n infix a)
-              b (str n infix b)
-              diff
-              (pair-difference normalize-histogram no-pre-editor rectangle
-                infix n a b)]
-          (.write w (str a " " b " " m " " diff "\n")))))))
+;(deftest test-lower
+;  (dopar [n (range 15 26 5)]
+;    (time (do-lower "/home/andrew/projects/personal/particl/data/dump" n "a" 10000000))))
+;
+;(defn top
+;  [in out n infix bits n-samples startup]
+;  (let [best (nearest-in-dump (print-tick 1000) in n bits n-samples startup 1)]
+;    (with-open [w (writer out)]
+;      (doseq [[[a b] m] best]
+;        (let [a (str n infix a)
+;              b (str n infix b)
+;              diff
+;              (pair-difference normalize-histogram no-pre-editor rectangle
+;                infix n a b)]
+;          (.write w (str a " " b " " m " " diff "\n")))))))
 
 ;(deftest test-top-7
 ;  (time (top "/home/andrew/projects/personal/particl/data/dump-7-a.dmp"
@@ -127,5 +127,56 @@
 
 ;(deftest test-rectangle-group
 ;  (group "/tmp/rectangle-20.dmp"))
+
+;(def do-lower
+;  (partial dump-lower normalize-histogram no-pre-editor rectangle
+;    (print-tick 100)))
+;
+;(deftest test-lower
+;  (dopar [n (range 5 16 5)]
+;    (time (do-lower "/tmp/uniform" n "a" 1000000))))
+
+(defn top
+  [in out n infix bits n-samples shutdown]
+  (let [tick (print-tick 1000)
+        best (nearest-in-dump tick in n bits n-samples shutdown 1)]
+    (with-open [w (writer out)]
+      (doseq [[[a b] m] (take 1000 best)]
+        (let [a (str n infix a)
+              b (str n infix b)
+              diff
+              (pair-difference normalize-histogram no-pre-editor rectangle
+                infix n a b)]
+          (.write w (str a " " b " " m " " diff "\n")))))))
+
+(deftest test-top-uniform
+  (doseq [n (range 5 16 5)]
+    (let [in (str "/tmp/uniform-" n "-a.dmp")
+          n-bits (cond (> n 8) 2 (> n 6) 3 :else 4)
+          n-samples (min 20 (+ 3 (int (/ (* 20 n n) 100))))
+          out (str "/tmp/uniform-" n "-a-" n-bits "-" n-samples ".best")
+          rpt (if (= n 5) 5 20)]
+      (time
+        (top in out n "a" n-bits n-samples rpt)))))
+
+(deftest test-top-both
+  (doseq [n (range 5 16 5)]
+    (let [in (str "/tmp/both-" n "-a.dmp")
+          n-bits (cond (> n 8) 2 (> n 6) 3 :else 4)
+          n-samples (min 20 (+ 3 (int (/ (* 20 n n) 100))))
+          out (str "/tmp/both-" n "-a-" n-bits "-" n-samples ".best")
+          rpt (if (= n 5) 5 20)]
+      (time
+        (top in out n "a" n-bits n-samples rpt)))))
+
+;(deftest test-top-manhattan
+;  (doseq [n (range 5 16 5)]
+;    (let [in (str "/tmp/manhattan-" n "-a.dmp")
+;          n-bits (cond (> n 8) 2 (> n 6) 3 :else 4)
+;          n-samples (min 20 (+ 3 (int (/ (* 20 n n) 100))))
+;          out (str "/tmp/manhattan-" n "-a-" n-bits "-" n-samples ".best")
+;          rpt (if (= n 5) 5 20)]
+;      (time
+;        (top in out n "a" n-bits n-samples rpt)))))
 
 (run-tests)
