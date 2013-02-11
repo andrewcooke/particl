@@ -9,7 +9,5 @@
                  [commons-codec/commons-codec "1.6"]
                  [net.sf.trove4j/trove4j "3.0.2"]
                  ]
-  :dev-dependencies [[lein-marginalia "0.7.0"]
-                     ]
+  :dev-dependencies [[lein-marginalia "0.7.0"]]
   :main cl.parti.main)
-
